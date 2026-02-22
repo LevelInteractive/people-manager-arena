@@ -51,7 +51,7 @@ function LoginForm() {
 
       {/* Quote */}
       <div className="max-w-2xl text-center mb-10 px-4">
-        <div className="text-[#E8712B] text-5xl font-serif leading-none mb-4">\u201C</div>
+        <div className="text-[#E8712B] text-5xl font-serif leading-none mb-4">&ldquo;</div>
         <p className="text-gray-300 italic text-sm leading-relaxed">
           It is not the critic who counts; not the man who points out how the strong man stumbles,
           or where the doer of deeds could have done them better. The credit belongs to the man
@@ -63,17 +63,17 @@ function LoginForm() {
           fails, at least fails while daring greatly, so that his place shall never be with those cold
           and timid souls who neither know victory nor defeat.
         </p>
-        <p className="text-gray-400 text-sm mt-6">\u2014 Theodore Roosevelt</p>
+        <p className="text-gray-400 text-sm mt-6">&mdash; Theodore Roosevelt</p>
       </div>
 
       {/* CTA Card */}
       <div className="w-full max-w-md bg-[#1A2744] rounded-2xl p-8 text-center mb-6">
         <h2 className="text-lg font-bold mb-2">
-          It\u2019s time for you to enter the arena and dare greatly.
+          It&apos;s time for you to enter the arena and dare greatly.
         </h2>
         <p className="text-gray-400 text-sm mb-6">
           Choose a scenario to sharpen your leadership skills. Each one is
-          a real management challenge \u2014 no right answers, just better ones.
+          a real management challenge &mdash; no right answers, just better ones.
         </p>
 
         {error && (
