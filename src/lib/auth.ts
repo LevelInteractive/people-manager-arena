@@ -1,50 +1,68 @@
 import { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-  ],
-  callbacks: {
-    async signIn({ user, account, profile }) {
-      // Restrict to allowed domain if configured
-      const allowedDomain = process.env.ALLOWED_DOMAIN;
-      if (allowedDomain && user.email) {
-        const domain = user.email.split("@")[1];
-        if (domain !== allowedDomain) {
-          return false; // Reject sign-in
+    CredentialsProvider({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email and password are required");
         }
-      }
 
-      // Update last login
-      if (user.id) {
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
+        if (!user || !user.hashedPassword) {
+          throw new Error("Invalid email or password");
+        }
+
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.hashedPassword
+        );
+
+        if (!isValid) {
+          throw new Error("Invalid email or password");
+        }
+
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
-        }).catch(() => {
-          // User might not exist yet (first login), that's fine
-        });
+        }).catch(() => {});
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        };
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = (user as any).role;
       }
-
-      return true;
+      return token;
     },
-
-    async session({ session, user }) {
+    async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = user.id;
-        (session.user as any).role = (user as any).role;
+        (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
       }
       return session;
     },
-
     async redirect({ url, baseUrl }) {
-      // After sign-in, redirect to home
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
@@ -54,32 +72,7 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login",
   },
-  events: {
-    async createUser({ user }) {
-      // Log first-time user creation
-      if (user.id) {
-        await prisma.eventLog.create({
-          data: {
-            userId: user.id,
-            eventType: "user_created",
-            metadata: { email: user.email },
-          },
-        });
-      }
-    },
-    async signIn({ user }) {
-      if (user.id) {
-        await prisma.eventLog.create({
-          data: {
-            userId: user.id,
-            eventType: "login",
-            metadata: {},
-          },
-        });
-      }
-    },
-  },
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
 };
