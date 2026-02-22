@@ -1,0 +1,286 @@
+// ═══════════════════════════════════════════════════════
+// Level Up - The Manager Arena
+// Prisma Schema (PostgreSQL)
+// ═══════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── NextAuth.js required models ─────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core Domain Models ──────────────────────────────
+
+enum UserRole {
+  MANAGER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(MANAGER)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  accounts           Account[]
+  sessions           Session[]
+  scenarioProgress   UserScenarioProgress[]
+  eventLogs          EventLog[]
+  feedbackSubmissions FeedbackSubmission[]
+  bugReports         BugReport[]
+  reflectionResponses ReflectionResponse[]
+
+  @@map("users")
+}
+
+model Q12Dimension {
+  id          Int     @id
+  title       String
+  description String
+
+  primaryScenarios   Scenario[] @relation("PrimaryQ12")
+  secondaryScenarios Scenario[] @relation("SecondaryQ12")
+
+  @@map("q12_dimensions")
+}
+
+model CoreValue {
+  id          String @id
+  name        String
+  description String
+  color       String @default("#F97316")
+
+  scenarios Scenario[]
+
+  @@map("core_values")
+}
+
+model KeyBehavior {
+  id          Int    @id
+  name        String
+  description String
+
+  choicePositive ChoiceKeyBehavior[] @relation("PositiveBehavior")
+  choiceNegative ChoiceKeyBehavior[] @relation("NegativeBehavior")
+
+  @@map("key_behaviors")
+}
+
+// ─── Scenario Content Models ─────────────────────────
+
+model Scenario {
+  id                   String   @id @default(cuid())
+  title                String
+  description          String   @db.Text
+  difficulty           String
+  estimatedTimeMinutes Int      @map("estimated_time_minutes")
+  primaryQ12Id         Int      @map("primary_q12_id")
+  secondaryQ12Id       Int?     @map("secondary_q12_id")
+  coreValueId          String   @map("core_value_id")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  primaryQ12   Q12Dimension  @relation("PrimaryQ12", fields: [primaryQ12Id], references: [id])
+  secondaryQ12 Q12Dimension? @relation("SecondaryQ12", fields: [secondaryQ12Id], references: [id])
+  coreValue    CoreValue     @relation(fields: [coreValueId], references: [id])
+
+  nodes              ScenarioNode[]
+  userProgress       UserScenarioProgress[]
+  eventLogs          EventLog[]
+  feedbackSubmissions FeedbackSubmission[]
+  bugReports         BugReport[]
+
+  @@map("scenarios")
+}
+
+enum NodeType {
+  REFLECTION
+  DECISION
+  OUTCOME
+}
+
+model ScenarioNode {
+  id          String   @id @default(cuid())
+  scenarioId  String   @map("scenario_id")
+  nodeType    NodeType @map("node_type")
+  contentText String   @map("content_text") @db.Text
+  orderIndex  Int      @map("order_index")
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  choices  Choice[]
+  reflectionResponses ReflectionResponse[]
+
+  @@unique([scenarioId, orderIndex])
+  @@map("scenario_nodes")
+}
+
+model Choice {
+  id              String @id @default(cuid())
+  nodeId          String @map("node_id")
+  choiceText      String @map("choice_text") @db.Text
+  nextNodeId      String? @map("next_node_id")
+  explanationText String @map("explanation_text") @db.Text
+  q12Impact       Int    @default(0) @map("q12_impact")
+  pointsBase      Int    @default(0) @map("points_base")
+
+  // Core value alignment stored as JSON: { "no-ego": 2, "better": 1, ... }
+  coreValueAlignment Json @default("{}") @map("core_value_alignment")
+
+  node          ScenarioNode        @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  keyBehaviors  ChoiceKeyBehavior[]
+
+  @@map("choices")
+}
+
+enum BehaviorImpact {
+  POSITIVE
+  NEGATIVE
+}
+
+model ChoiceKeyBehavior {
+  id            String         @id @default(cuid())
+  choiceId      String         @map("choice_id")
+  keyBehaviorId Int            @map("key_behavior_id")
+  impact        BehaviorImpact
+
+  choice      Choice      @relation(fields: [choiceId], references: [id], onDelete: Cascade)
+  positiveBehavior KeyBehavior? @relation("PositiveBehavior", fields: [keyBehaviorId], references: [id], map: "positive_behavior_fk")
+  negativeBehavior KeyBehavior? @relation("NegativeBehavior", fields: [keyBehaviorId], references: [id], map: "negative_behavior_fk")
+
+  @@unique([choiceId, keyBehaviorId, impact])
+  @@map("choice_key_behaviors")
+}
+
+// ─── Player Progress & Tracking ──────────────────────
+
+model UserScenarioProgress {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  scenarioId      String    @map("scenario_id")
+  scoreTotal      Int       @default(0) @map("score_total")
+  q12ScoreTotal   Int       @default(0) @map("q12_score_total")
+  cultureScoreTotal Int     @default(0) @map("culture_score_total")
+  choicesJson     Json?     @map("choices_json")
+  startedAt       DateTime  @default(now()) @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario Scenario @relation(fields: [scenarioId], references: [id])
+
+  @@map("user_scenario_progress")
+}
+
+model ReflectionResponse {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  nodeId     String   @map("node_id")
+  responseText String @map("response_text") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  node ScenarioNode @relation(fields: [nodeId], references: [id])
+
+  @@map("reflection_responses")
+}
+
+// ─── Event Logging ───────────────────────────────────
+
+model EventLog {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  eventType  String   @map("event_type")
+  scenarioId String?  @map("scenario_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario Scenario? @relation(fields: [scenarioId], references: [id])
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("event_logs")
+}
+
+// ─── Feedback & Bug Reports ──────────────────────────
+
+model FeedbackSubmission {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  scenarioId       String   @map("scenario_id")
+  ratingRealism    Int      @map("rating_realism")
+  difficultyRating Int      @map("difficulty_rating")
+  commentsText     String?  @map("comments_text") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario Scenario @relation(fields: [scenarioId], references: [id])
+
+  @@map("feedback_submissions")
+}
+
+enum BugStatus {
+  OPEN
+  CLOSED
+}
+
+model BugReport {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  scenarioId  String?   @map("scenario_id")
+  description String    @db.Text
+  browserInfo String?   @map("browser_info")
+  route       String?
+  status      BugStatus @default(OPEN)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario Scenario? @relation(fields: [scenarioId], references: [id])
+
+  @@map("bug_reports")
+}
