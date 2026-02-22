@@ -1,16 +1,54 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 
+// Build providers list dynamically
+const providers: NextAuthOptions["providers"] = [];
+
+// Add Google if credentials are configured
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  );
+}
+
+// Add email-based login as fallback (no Google OAuth needed)
+providers.push(
+  CredentialsProvider({
+    name: "Email Login",
+    credentials: {
+      email: { label: "Email", type: "email", placeholder: "you@level.agency" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email) return null;
+      const email = credentials.email.toLowerCase();
+
+      // Find or create user
+      let user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: { email, name: email.split("@")[0], role: "MANAGER" },
+        });
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      }).catch(() => {});
+
+      return { id: user.id, email: user.email, name: user.name, role: user.role };
+    },
+  })
+);
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-  ],
+  providers,
   callbacks: {
     async signIn({ user, account, profile }) {
       // Restrict to allowed domain if configured
@@ -35,8 +73,21 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    async session({ session, user }) {
-      if (session.user) {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = (user as any).role;
+      }
+      return token;
+    },
+
+    async session({ session, token, user }) {
+      if (token) {
+        // JWT strategy (used with credentials)
+        (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
+      } else if (user) {
+        // Database strategy (used with Google)
         (session.user as any).id = user.id;
         (session.user as any).role = (user as any).role;
       }
@@ -80,6 +131,6 @@ export const authOptions: NextAuthOptions = {
     },
   },
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
 };
