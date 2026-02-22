@@ -228,6 +228,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
   // ═══════════════════════════════════════
   const navItems = [
     { key: "home", label: "Arena" },
+    { key: "resources", label: "Resources" },
     { key: "profile", label: "Profile" },
     { key: "leaderboard", label: "Board" },
     ...(user.role === "ADMIN" ? [{ key: "admin", label: "Admin" }] : []),
@@ -311,6 +312,9 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
             q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors}
             onBack={() => nav("home")}
           />
+        )}
+        {view === "resources" && (
+          <ResourcesView q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} />
         )}
         {view === "profile" && (
           <ProfileView user={user} stats={stats} q12={q12} coreValues={coreValues} recent={userProfile?.recentProgress || []} />
@@ -670,6 +674,125 @@ function ResultsView({ scenario, gameState, q12, coreValues, keyBehaviors, onBac
       <div style={{ textAlign: "center", marginTop: 32 }}>
         <Btn onClick={onBack}>Return to Arena</Btn>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// RESOURCES VIEW
+// ═══════════════════════════════════════════════════════
+
+function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
+  const [tab, setTab] = useState("q12");
+  const tabs = [
+    { key: "q12", label: "Gallup Q12" },
+    { key: "values", label: "Core Values" },
+    { key: "behaviors", label: "Key Behaviors" },
+  ];
+
+  return (
+    <div className="animate-fade-in">
+      <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Resources</h1>
+      <p style={{ color: T.textDim, fontSize: 16, lineHeight: 1.6, marginBottom: 32 }}>
+        The frameworks and behaviors that power every scenario in the Arena. Use these as your field guide to becoming a stronger leader.
+      </p>
+
+      <div style={{ display: "flex", gap: 4, marginBottom: 28 }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            background: tab === t.key ? T.accentDim : "transparent",
+            color: tab === t.key ? T.accent : T.textDim,
+            border: `1px solid ${tab === t.key ? T.accent + "44" : T.border}`,
+            borderRadius: 8, padding: "10px 20px", fontSize: 14, fontWeight: 600,
+            cursor: "pointer", fontFamily: "inherit",
+          }}>{t.label}</button>
+        ))}
+      </div>
+      {tab === "q12" && (
+        <div>
+          <Card style={{ padding: 28, marginBottom: 20 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>The Gallup Q12</h2>
+            <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7 }}>
+              The Gallup Q12 is a set of 12 survey statements that measure the most important elements of employee engagement.
+              These dimensions form the foundation of how scenarios are scored in the Arena. Each scenario targets specific Q12
+              dimensions, and your choices directly impact your Q12 engagement score.
+            </p>
+          </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
+            {q12.map((dim: any, i: number) => (
+              <Card key={dim.id} style={{ padding: 20, animation: `slideUp 0.4s ease ${i * 0.05}s both` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10,
+                    background: T.accentDim, display: "flex", alignItems: "center",
+                    justifyContent: "center", fontWeight: 800, fontSize: 16,
+                    color: T.accent, fontFamily: "'JetBrains Mono'", flexShrink: 0,
+                  }}>Q{dim.id}</div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700 }}>{dim.title}</h3>
+                </div>
+                <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.6 }}>{dim.description}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+      {tab === "values" && (
+        <div>
+          <Card style={{ padding: 28, marginBottom: 20 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Level Core Values</h2>
+            <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7 }}>
+              Our four core values define who we are and how we work at Level. In the Arena, every decision you make
+              is scored against these values. Strong alignment means you are leading in a way that reflects our culture.
+            </p>
+          </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+            {coreValues.map((cv: any, i: number) => (
+              <Card key={cv.id} style={{ padding: 28, animation: `slideUp 0.4s ease ${i * 0.1}s both`, borderTop: `3px solid ${cv.color}` }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 12,
+                  background: cv.color + "22", display: "flex", alignItems: "center",
+                  justifyContent: "center", marginBottom: 16,
+                }}>
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: cv.color }} />
+                </div>
+                <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: cv.color }}>{cv.name}</h3>
+                <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7 }}>{cv.description}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "behaviors" && (
+        <div>
+          <Card style={{ padding: 28, marginBottom: 20 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>26 Key Behaviors</h2>
+            <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7 }}>
+              These are the specific behaviors we expect from leaders at Level. During scenario play, your choices
+              activate positive behaviors or flag missed opportunities. Over time, your behavior profile reveals your
+              leadership strengths and areas for growth.
+            </p>
+          </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+            {keyBehaviors.map((kb: any, i: number) => (
+              <Card key={kb.id} style={{ padding: 20, animation: `slideUp 0.3s ease ${i * 0.03}s both` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                    background: T.accent + "15", display: "flex", alignItems: "center",
+                    justifyContent: "center", fontSize: 13, fontWeight: 800,
+                    color: T.accent, fontFamily: "'JetBrains Mono'",
+                  }}>{kb.id}</div>
+                  <div>
+                    <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{kb.name}</h4>
+                    <p style={{ color: T.textDim, fontSize: 13, lineHeight: 1.6 }}>{kb.description}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
