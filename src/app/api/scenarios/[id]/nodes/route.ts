@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/scenarios/[id]/nodes — Add a node to a scenario (admin)
 export async function POST(
   req: NextRequest,

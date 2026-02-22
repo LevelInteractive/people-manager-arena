@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth, requireAdmin } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/bugs — Submit a bug report
 export async function POST(req: NextRequest) {
   const { error, session } = await requireAuth();

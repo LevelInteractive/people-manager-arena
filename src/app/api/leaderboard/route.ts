@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/leaderboard?sort=score|completed|q12|improved
 export async function GET(req: NextRequest) {
   const { error, session } = await requireAuth();

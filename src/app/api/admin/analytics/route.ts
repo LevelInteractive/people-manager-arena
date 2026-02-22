@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/analytics — Full admin dashboard data
 export async function GET(req: NextRequest) {
   const { error } = await requireAdmin();

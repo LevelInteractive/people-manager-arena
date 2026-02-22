@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/reference — Get all reference/seed data (public for authenticated users)
 export async function GET() {
   const [q12Dimensions, coreValues, keyBehaviors] = await Promise.all([

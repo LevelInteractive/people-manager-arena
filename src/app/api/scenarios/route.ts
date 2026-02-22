@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth, requireAdmin } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/scenarios — List all active scenarios
 export async function GET() {
   const { error, session } = await requireAuth();

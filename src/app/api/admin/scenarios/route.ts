@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/scenarios — List ALL scenarios (including inactive) with admin data
 export async function GET() {
   const { error } = await requireAdmin();
