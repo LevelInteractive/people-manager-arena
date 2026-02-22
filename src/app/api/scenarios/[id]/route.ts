@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth, requireAdmin } from "@/lib/session";
 
-export const dynamic = 'force-dynamic';
-
 // GET /api/scenarios/[id] — Full scenario with nodes, choices, behaviors
 export async function GET(
   req: NextRequest,

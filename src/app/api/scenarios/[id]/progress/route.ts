@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 
-export const dynamic = 'force-dynamic';
-
 // GET /api/scenarios/[id]/progress — Get user's progress for this scenario
 export async function GET(
   req: NextRequest,

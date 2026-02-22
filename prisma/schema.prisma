@@ -8,9 +8,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("people_manager_area_POSTGRES_PRISMA_URL")
-  directUrl = env("people_manager_area_DATABASE_URL_UNPOOLED")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ─── NextAuth.js required models ─────────────────────

@@ -352,7 +352,7 @@ function HomeView({ scenarios, stats, onStart }: any) {
     <div className="animate-fade-in">
       <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Welcome to the Arena.</h1>
       <p style={{ color: T.textDim, fontSize: 16, lineHeight: 1.6, marginBottom: 32 }}>
-        Choose a scenario to sharpen your leadership skills. Each one is a real management challenge — no right answers, just better ones.
+        It&apos;s time for you to enter the arena and dare greatly. Choose a scenario to sharpen your leadership skills. Each one is a real management challenge — no right answers, just better ones.
       </p>
 
       <div style={{ display: "flex", gap: 12, marginBottom: 40, flexWrap: "wrap" }}>
