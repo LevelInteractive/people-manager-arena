@@ -25,10 +25,13 @@ const T = {
 function Badge({ children, color = T.accent, style = {} }: any) {
   return (
     <span style={{
-      display: "inline-block", padding: "2px 10px", borderRadius: 20,
+      display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 20,
       fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-      background: color + "22", color, border: `1px solid ${color}44`, ...style,
-    }}>{children}</span>
+      background: T.border + "88", color: T.text, border: `1px solid ${T.border}`, ...style,
+    }}>
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      {children}
+    </span>
   );
 }
 
@@ -1067,15 +1070,11 @@ function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
             {coreValues.map((cv: any, i: number) => (
-              <Card key={cv.id} style={{ padding: 28, animation: `slideUp 0.4s ease ${i * 0.1}s both`, borderTop: `3px solid ${cv.color}` }}>
-                <div style={{
-                  width: 48, height: 48, borderRadius: 12,
-                  background: cv.color + "22", display: "flex", alignItems: "center",
-                  justifyContent: "center", marginBottom: 16,
-                }}>
-                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: cv.color }} />
+              <Card key={cv.id} style={{ padding: 28, animation: `slideUp 0.4s ease ${i * 0.1}s both` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: cv.color, flexShrink: 0 }} />
+                  <h3 style={{ fontSize: 20, fontWeight: 800, color: T.text }}>{cv.name}</h3>
                 </div>
-                <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: cv.color }}>{cv.name}</h3>
                 <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7 }}>{cv.description}</p>
               </Card>
             ))}
