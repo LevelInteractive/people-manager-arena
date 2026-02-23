@@ -208,6 +208,8 @@ model UserScenarioProgress {
   q12ScoreTotal   Int       @default(0) @map("q12_score_total")
   cultureScoreTotal Int     @default(0) @map("culture_score_total")
   choicesJson     Json?     @map("choices_json")
+  currentNodeIndex Int      @default(0) @map("current_node_index")
+  gameStateJson   Json?     @map("game_state_json")
   startedAt       DateTime  @default(now()) @map("started_at")
   completedAt     DateTime? @map("completed_at")
 
@@ -285,6 +287,8 @@ model CoachingExchange {
 
 enum BugStatus {
   OPEN
+  IN_PROGRESS
+  RESOLVED
   CLOSED
 }
 
@@ -296,6 +300,8 @@ model BugReport {
   browserInfo String?   @map("browser_info")
   route       String?
   status      BugStatus @default(OPEN)
+  priority    String?   @default("medium")
+  adminNotes  String?   @map("admin_notes") @db.Text
   createdAt   DateTime  @default(now()) @map("created_at")
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
