@@ -119,6 +119,8 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
   const [showFeedback, setShowFeedback] = useState(false);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [adminData, setAdminData] = useState<any>(null);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [pendingResume, setPendingResume] = useState<any>(null);
 
   const user = session.user;
   const q12 = referenceData?.q12Dimensions || [];
@@ -138,14 +140,26 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
       const full = await api.scenarios.get(scenario.id);
       setFullScenario(full);
       setSelectedScenario(scenario);
-      setGameState({
-        currentNodeIndex: 0, responses: [], choicesMade: [],
-        score: 0, q12Score: 0, cultureScore: 0,
-        behaviorsPositive: [] as number[], behaviorsNegative: [] as number[],
-        startTime: Date.now(),
-      });
-      nav("play");
-      logEvent("scenario_started", scenario.id);
+
+      // Check for existing in-progress progress
+      const progressList = await api.progress.get(scenario.id);
+      const inProgress = progressList.find((p: any) => !p.completedAt && p.gameStateJson);
+
+      if (inProgress) {
+        // Show resume prompt
+        setPendingResume(inProgress);
+        setShowResumeModal(true);
+      } else {
+        // No in-progress, proceed with fresh gameState
+        setGameState({
+          currentNodeIndex: 0, responses: [], choicesMade: [],
+          score: 0, q12Score: 0, cultureScore: 0,
+          behaviorsPositive: [] as number[], behaviorsNegative: [] as number[],
+          startTime: Date.now(),
+        });
+        nav("play");
+        logEvent("scenario_started", scenario.id);
+      }
     } catch (err) {
       console.error("Failed to load scenario:", err);
     }
@@ -180,7 +194,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
 
       setGameState((prev: any) => ({
         ...prev,
-        choicesMade: [...prev.choicesMade, nodeData],
+        choicesMade: [...prev.choicesMade, { ...nodeData, allChoices: currentNode.choices }],
         score: prev.score + choice.pointsBase + choice.q12Impact + cvScore,
         q12Score: prev.q12Score + choice.q12Impact,
         cultureScore: prev.cultureScore + cvScore,
@@ -222,6 +236,21 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
       api.admin.analytics().then(setAdminData).catch(() => {});
     }
   }, [view, user.role]);
+
+  // Auto-save game progress
+  useEffect(() => {
+    if (view !== "play" || !fullScenario || !gameState || gameState.currentNodeIndex === 0) return;
+    const timer = setTimeout(() => {
+      api.progress.autoSave(fullScenario.id, {
+        currentNodeIndex: gameState.currentNodeIndex,
+        gameStateJson: gameState,
+        scoreTotal: gameState.score,
+        q12ScoreTotal: gameState.q12Score,
+        cultureScoreTotal: gameState.cultureScore,
+      }).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [view, fullScenario, gameState]);
 
   // ═══════════════════════════════════════
   // NAV BAR
@@ -344,6 +373,41 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
           }} />
         </Modal>
       )}
+      {showResumeModal && pendingResume && (
+        <Modal onClose={() => { setShowResumeModal(false); setPendingResume(null); }} title="Resume Scenario?">
+          <p style={{ color: T.textDim, fontSize: 15, lineHeight: 1.7, marginBottom: 24 }}>
+            You have an in-progress session for this scenario. Would you like to pick up where you left off?
+          </p>
+          <div style={{ display: "flex", gap: 12 }}>
+            <Btn onClick={async () => {
+              // Start fresh
+              try { await api.progress.deleteIncomplete(pendingResume.scenarioId); } catch {}
+              setGameState({
+                currentNodeIndex: 0, responses: [], choicesMade: [],
+                score: 0, q12Score: 0, cultureScore: 0,
+                behaviorsPositive: [] as number[], behaviorsNegative: [] as number[],
+                startTime: Date.now(),
+              });
+              setShowResumeModal(false);
+              setPendingResume(null);
+              nav("play");
+              logEvent("scenario_started", pendingResume.scenarioId);
+            }} variant="secondary" style={{ flex: 1, justifyContent: "center" }}>Start Fresh</Btn>
+            <Btn onClick={() => {
+              const saved = pendingResume.gameStateJson;
+              setGameState({
+                ...saved,
+                behaviorsPositive: saved.behaviorsPositive || [],
+                behaviorsNegative: saved.behaviorsNegative || [],
+              });
+              setShowResumeModal(false);
+              setPendingResume(null);
+              nav("play");
+              logEvent("scenario_resumed", pendingResume.scenarioId);
+            }} style={{ flex: 1, justifyContent: "center" }}>Resume →</Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -377,6 +441,12 @@ function HomeView({ scenarios, stats, onStart }: any) {
                 borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, color: T.success,
               }}>✓ Completed</div>
             )}
+            {!s.userCompleted && s.userInProgress && (
+              <div style={{
+                position: "absolute", top: 16, right: 16, background: T.warning + "22",
+                borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, color: T.warning,
+              }}>⏳ In Progress</div>
+            )}
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
               <Badge color={s.coreValue?.color}>{s.coreValue?.name}</Badge>
               <Badge color={T.textDim}>Q12 #{s.primaryQ12Id}: {s.primaryQ12?.title}</Badge>
@@ -390,7 +460,7 @@ function HomeView({ scenarios, stats, onStart }: any) {
                 <span>{s.nodes?.length || 0} stages</span>
               </div>
               <div style={{ color: T.accent, fontSize: 13, fontWeight: 600 }}>
-                {s.userCompleted ? "Replay →" : "Start →"}
+                {s.userCompleted ? "Replay →" : s.userInProgress ? "Continue →" : "Start →"}
               </div>
             </div>
           </Card>
@@ -802,22 +872,129 @@ function ResultsView({ scenario, gameState, q12, coreValues, keyBehaviors, onBac
         </div>
       </Card>
 
-      {/* Decision Replay */}
-      <Card style={{ padding: 28 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Decision Replay</h3>
-        {gameState.choicesMade.map((cm: any, i: number) => (
-          <div key={i} style={{ padding: 16, background: T.bg, borderRadius: 12, marginBottom: 12, border: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 12, color: T.accent, fontWeight: 600, marginBottom: 6 }}>Decision {i + 1}</div>
-            <div style={{ fontSize: 14, marginBottom: 8 }}>"{cm.choice.choiceText?.substring(0, 120)}..."</div>
-            <div style={{ fontSize: 13, color: T.textDim, lineHeight: 1.6 }}>{cm.choice.explanationText}</div>
-          </div>
-        ))}
-      </Card>
+      {/* Decision Replay with Coaching */}
+      <DecisionReplaySection choicesMade={gameState.choicesMade} scenario={scenario} keyBehaviors={keyBehaviors} />
 
       <div style={{ textAlign: "center", marginTop: 32 }}>
         <Btn onClick={onBack}>Return to Arena</Btn>
       </div>
     </div>
+  );
+}
+
+function DecisionReplaySection({ choicesMade, scenario, keyBehaviors }: any) {
+  const [coachingState, setCoachingState] = useState<Record<number, { loading: boolean; feedback: string | null }>>({});
+
+  const scoreChoice = (c: any) => {
+    const cvScore = Object.values((c.coreValueAlignment || {}) as Record<string, number>).reduce((a: number, b: number) => a + b, 0);
+    return c.pointsBase + c.q12Impact + cvScore;
+  };
+
+  const getCoaching = async (index: number, cm: any) => {
+    setCoachingState(prev => ({ ...prev, [index]: { loading: true, feedback: null } }));
+    try {
+      const res = await api.coaching.decision({
+        scenarioId: scenario.id,
+        nodeId: cm.nodeId,
+        chosenChoiceId: cm.choice.id,
+      });
+      setCoachingState(prev => ({ ...prev, [index]: { loading: false, feedback: res.feedback } }));
+    } catch {
+      setCoachingState(prev => ({ ...prev, [index]: { loading: false, feedback: "Unable to load coaching feedback." } }));
+    }
+  };
+
+  return (
+    <Card style={{ padding: 28 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Decision Replay</h3>
+      {choicesMade.map((cm: any, i: number) => {
+        const choice = cm.choice;
+        const cvScore = Object.values((choice.coreValueAlignment || {}) as Record<string, number>).reduce((a: number, b: number) => a + b, 0);
+        const chosenScore = scoreChoice(choice);
+
+        // Find best alternative
+        const allChoices = cm.allChoices || [];
+        let bestAlt: any = null;
+        let bestAltScore = chosenScore;
+        allChoices.forEach((c: any) => {
+          if (c.id !== choice.id) {
+            const s = scoreChoice(c);
+            if (s > bestAltScore) { bestAlt = c; bestAltScore = s; }
+          }
+        });
+
+        const isOptimal = !bestAlt;
+        const coaching = coachingState[i];
+
+        return (
+          <div key={i} style={{ padding: 20, background: T.bg, borderRadius: 12, marginBottom: 16, border: `1px solid ${isOptimal ? T.success + "44" : T.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: T.accent, fontWeight: 600 }}>Decision {i + 1}</div>
+              {isOptimal && <Badge color={T.success} style={{ fontSize: 10 }}>Optimal Choice</Badge>}
+            </div>
+
+            <div style={{ fontSize: 14, marginBottom: 8, fontWeight: 600 }}>{choice.choiceText}</div>
+            <div style={{ fontSize: 13, color: T.textDim, lineHeight: 1.6, marginBottom: 12 }}>{choice.explanationText}</div>
+
+            {/* Score Breakdown */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+              {[
+                { label: "Points", value: choice.pointsBase },
+                { label: "Q12", value: choice.q12Impact },
+                { label: "Culture", value: cvScore },
+              ].map(s => (
+                <div key={s.label} style={{
+                  background: (s.value >= 0 ? T.success : T.danger) + "11", borderRadius: 8, padding: "4px 12px",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  <span style={{ fontSize: 10, color: T.textMuted }}>{s.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: s.value >= 0 ? T.success : T.danger, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>
+                    {s.value > 0 ? "+" : ""}{s.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Behaviors */}
+            {(choice.keyBehaviorsPositive?.length > 0 || choice.keyBehaviorsNegative?.length > 0) && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                {(choice.keyBehaviorsPositive || []).map((b: any) => (
+                  <Badge key={`p-${b.id}`} color={T.success} style={{ fontSize: 9 }}>✓ {b.name}</Badge>
+                ))}
+                {(choice.keyBehaviorsNegative || []).map((b: any) => (
+                  <Badge key={`n-${b.id}`} color={T.danger} style={{ fontSize: 9 }}>✗ {b.name}</Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Best Alternative */}
+            {bestAlt && (
+              <div style={{ background: T.warning + "0A", borderRadius: 10, padding: 14, marginBottom: 12, borderLeft: `3px solid ${T.warning}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.warning, marginBottom: 6 }}>Stronger Alternative</div>
+                <div style={{ fontSize: 13, color: T.textDim, lineHeight: 1.6 }}>{bestAlt.choiceText}</div>
+                <div style={{ fontSize: 12, color: T.textMuted, marginTop: 6, fontStyle: "italic" }}>{bestAlt.explanationText}</div>
+              </div>
+            )}
+
+            {/* Coaching Button */}
+            {!isOptimal && !coaching?.feedback && (
+              <Btn onClick={() => getCoaching(i, cm)} disabled={coaching?.loading}
+                variant="secondary" style={{ fontSize: 12, padding: "8px 16px" }}>
+                {coaching?.loading ? "Loading..." : "Get Coach's Take →"}
+              </Btn>
+            )}
+
+            {/* Coaching Feedback */}
+            {coaching?.feedback && (
+              <div style={{ background: T.accent + "0A", borderRadius: 10, padding: 14, borderLeft: `3px solid ${T.accent}` }} className="animate-slide-up">
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 6 }}>Coach&apos;s Take</div>
+                <div style={{ fontSize: 13, color: T.text, lineHeight: 1.7 }}>{coaching.feedback}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </Card>
   );
 }
 
@@ -1079,7 +1256,7 @@ function AdminView({ data, q12, coreValues }: any) {
       <p style={{ color: T.textDim, marginBottom: 24 }}>Analytics and system health for Level Up.</p>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
-        {["usage", "q12", "culture", "scenarios"].map(t => (
+        {["usage", "q12", "culture", "scenarios", "bugs"].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             background: tab === t ? T.accentDim : "transparent", color: tab === t ? T.accent : T.textDim,
             border: `1px solid ${tab === t ? T.accent + "44" : T.border}`, borderRadius: 8,
@@ -1188,6 +1365,144 @@ function AdminView({ data, q12, coreValues }: any) {
           ))}
         </div>
       )}
+
+      {tab === "bugs" && <AdminBugsTab />}
+    </div>
+  );
+}
+
+function AdminBugsTab() {
+  const [bugs, setBugs] = useState<any[]>([]);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [search, setSearch] = useState("");
+  const [expandedBug, setExpandedBug] = useState<string | null>(null);
+  const [editNotes, setEditNotes] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const loadBugs = useCallback(async () => {
+    try {
+      const params: any = {};
+      if (filterStatus) params.status = filterStatus;
+      if (filterPriority) params.priority = filterPriority;
+      if (search) params.search = search;
+      const res = await api.bugs.list(params);
+      setBugs(res.bugs);
+      setStatusCounts(res.statusCounts);
+    } catch {}
+  }, [filterStatus, filterPriority, search]);
+
+  useEffect(() => { loadBugs(); }, [loadBugs]);
+
+  const updateBug = async (id: string, data: any) => {
+    setSaving(id);
+    try {
+      await api.bugs.update(id, data);
+      await loadBugs();
+    } catch {}
+    setSaving(null);
+  };
+
+  const statusColors: Record<string, string> = {
+    OPEN: T.danger, IN_PROGRESS: T.warning, RESOLVED: T.success, CLOSED: T.textMuted,
+  };
+  const priorityColors: Record<string, string> = {
+    critical: T.danger, high: T.warning, medium: T.accent, low: T.textMuted,
+  };
+
+  return (
+    <div>
+      {/* Status Summary */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+        {["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].map(s => (
+          <StatBox key={s} label={s.replace("_", " ")} value={statusCounts[s] || 0} color={statusColors[s]} />
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <select value={filterStatus} onChange={(e: any) => setFilterStatus(e.target.value)}
+          style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontFamily: "inherit" }}>
+          <option value="">All Statuses</option>
+          <option value="OPEN">Open</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+        <select value={filterPriority} onChange={(e: any) => setFilterPriority(e.target.value)}
+          style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontFamily: "inherit" }}>
+          <option value="">All Priorities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <input value={search} onChange={(e: any) => setSearch(e.target.value)} placeholder="Search bugs..."
+          style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontFamily: "inherit", flex: 1, minWidth: 200, outline: "none" }} />
+      </div>
+
+      {/* Bug List */}
+      {bugs.map((bug: any) => {
+        const isExpanded = expandedBug === bug.id;
+        return (
+          <Card key={bug.id} onClick={() => setExpandedBug(isExpanded ? null : bug.id)}
+            style={{ marginBottom: 8, padding: 16, cursor: "pointer" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <Badge color={statusColors[bug.status]}>{bug.status.replace("_", " ")}</Badge>
+                <Badge color={priorityColors[bug.priority || "medium"]}>{bug.priority || "medium"}</Badge>
+                <span style={{ fontSize: 13, color: T.textDim }}>{bug.user?.name || bug.user?.email || "Unknown"}</span>
+                {bug.route && <span style={{ fontSize: 11, color: T.textMuted }}>· {bug.route}</span>}
+                {bug.scenario?.title && <span style={{ fontSize: 11, color: T.textMuted }}>· {bug.scenario.title}</span>}
+              </div>
+              <span style={{ fontSize: 11, color: T.textMuted, fontFamily: "'Inter Tight', 'JetBrains Mono'", whiteSpace: "nowrap" }}>
+                {new Date(bug.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+            <p style={{ fontSize: 13, color: T.textDim, marginTop: 8, lineHeight: 1.5 }}>
+              {isExpanded ? bug.description : bug.description.substring(0, 150) + (bug.description.length > 150 ? "..." : "")}
+            </p>
+
+            {isExpanded && (
+              <div onClick={(e: any) => e.stopPropagation()} style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+                {bug.browserInfo && (
+                  <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 12 }}>Browser: {bug.browserInfo.substring(0, 80)}</div>
+                )}
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <select value={bug.status} onChange={(e: any) => updateBug(bug.id, { status: e.target.value })}
+                    style={{ background: T.bg, color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontFamily: "inherit" }}>
+                    <option value="OPEN">Open</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="RESOLVED">Resolved</option>
+                    <option value="CLOSED">Closed</option>
+                  </select>
+                  <select value={bug.priority || "medium"} onChange={(e: any) => updateBug(bug.id, { priority: e.target.value })}
+                    style={{ background: T.bg, color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontFamily: "inherit" }}>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+                <textarea
+                  value={editNotes[bug.id] !== undefined ? editNotes[bug.id] : (bug.adminNotes || "")}
+                  onChange={(e: any) => setEditNotes(prev => ({ ...prev, [bug.id]: e.target.value }))}
+                  placeholder="Admin notes..."
+                  style={{ width: "100%", minHeight: 60, padding: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none", marginBottom: 8 }}
+                />
+                <Btn onClick={() => {
+                  const notes = editNotes[bug.id] !== undefined ? editNotes[bug.id] : (bug.adminNotes || "");
+                  updateBug(bug.id, { adminNotes: notes });
+                }} disabled={saving === bug.id} variant="secondary" style={{ fontSize: 12, padding: "6px 14px" }}>
+                  {saving === bug.id ? "Saving..." : "Save Notes"}
+                </Btn>
+              </div>
+            )}
+          </Card>
+        );
+      })}
+      {bugs.length === 0 && <Card><p style={{ color: T.textMuted, fontSize: 14 }}>No bugs found matching your filters.</p></Card>}
     </div>
   );
 }

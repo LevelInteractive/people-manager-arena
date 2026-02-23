@@ -34,6 +34,9 @@ export async function GET() {
     userCompleted: userProgress.some(
       (p) => p.scenarioId === s.id && p.completedAt !== null
     ),
+    userInProgress: userProgress.some(
+      (p) => p.scenarioId === s.id && p.completedAt === null && p.currentNodeIndex > 0
+    ),
     userBestScore: userProgress
       .filter((p) => p.scenarioId === s.id && p.completedAt !== null)
       .reduce((max, p) => Math.max(max, p.scoreTotal), 0),

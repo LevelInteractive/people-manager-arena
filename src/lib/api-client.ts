@@ -29,6 +29,10 @@ export const api = {
     get: (scenarioId: string) => fetchAPI<any[]>(`/api/scenarios/${scenarioId}/progress`),
     save: (scenarioId: string, data: any) =>
       fetchAPI<any>(`/api/scenarios/${scenarioId}/progress`, { method: "POST", body: JSON.stringify(data) }),
+    autoSave: (scenarioId: string, data: any) =>
+      fetchAPI<any>(`/api/scenarios/${scenarioId}/progress`, { method: "PUT", body: JSON.stringify(data) }),
+    deleteIncomplete: (scenarioId: string) =>
+      fetchAPI<any>(`/api/scenarios/${scenarioId}/progress`, { method: "DELETE" }),
   },
 
   // ─── Reflections ───
@@ -86,9 +90,15 @@ export const api = {
   bugs: {
     submit: (data: { description: string; scenarioId?: string; browserInfo?: string; route?: string }) =>
       fetchAPI<any>("/api/bugs", { method: "POST", body: JSON.stringify(data) }),
-    list: (status?: string) => fetchAPI<any[]>(`/api/bugs${status ? `?status=${status}` : ""}`),
-    updateStatus: (id: string, status: "OPEN" | "CLOSED") =>
-      fetchAPI<any>("/api/bugs", { method: "PATCH", body: JSON.stringify({ id, status }) }),
+    list: (params?: { status?: string; priority?: string; search?: string }) => {
+      const qs = new URLSearchParams();
+      if (params?.status) qs.set("status", params.status);
+      if (params?.priority) qs.set("priority", params.priority);
+      if (params?.search) qs.set("search", params.search);
+      return fetchAPI<{ bugs: any[]; statusCounts: Record<string, number> }>(`/api/bugs?${qs}`);
+    },
+    update: (id: string, data: { status?: string; priority?: string; adminNotes?: string }) =>
+      fetchAPI<any>("/api/bugs", { method: "PATCH", body: JSON.stringify({ id, ...data }) }),
   },
 
   // ─── Users ───
