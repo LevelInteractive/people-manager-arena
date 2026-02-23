@@ -151,10 +151,10 @@ export async function GET() {
     // ─── Core Values ─────────────────────────────────────
     results.push("Seeding Core Values...");
     const coreValues = [
-      { id: "no-ego", name: "No Ego, All In", description: "Stay humble and work together. No task is too small, no person too big.", color: "#F59E0B" },
-      { id: "better", name: "Better Every Day", description: "Embrace curiosity and growth. Focus on progress over perfection.", color: "#10B981" },
-      { id: "relentless", name: "Relentless for Results", description: "Be driven to win and achieve goals. Act with urgency and accountability.", color: "#EF4444" },
-      { id: "truth", name: "Driven by Truth", description: "Speak up even when it's tough. Value honesty, transparency, and data-driven decisions.", color: "#6366F1" },
+      { id: "no-ego", name: "No Ego, All In", description: "Stay humble and work together. No task is too small, no person too big.", color: "#FFAA53" },
+      { id: "better", name: "Better Every Day", description: "Embrace curiosity and growth. Focus on progress over perfection.", color: "#8EE34D" },
+      { id: "relentless", name: "Relentless for Results", description: "Be driven to win and achieve goals. Act with urgency and accountability.", color: "#FD6EF8" },
+      { id: "truth", name: "Driven by Truth", description: "Speak up even when it's tough. Value honesty, transparency, and data-driven decisions.", color: "#86D5F4" },
     ];
     for (const cv of coreValues) {
       await prisma.coreValue.upsert({ where: { id: cv.id }, update: cv, create: cv });

@@ -15,8 +15,8 @@ const T = {
   bg: "#000000", surface: "#111111", surfaceHover: "#1A1A1A",
   border: "#2A2A2A", accent: "#86D5F4", accentDim: "rgba(134,213,244,0.12)",
   accentGlow: "rgba(134,213,244,0.35)", text: "#FFFFFF", textDim: "#999999",
-  textMuted: "#666666", success: "#8EE34D", danger: "#EF4444",
-  warning: "#FFAA53", info: "#FD6EF8", gray: "#D9DEF0",
+  textMuted: "#666666", success: "#8EE34D", danger: "#FD6EF8",
+  warning: "#FFAA53", info: "#86D5F4", gray: "#D9DEF0",
 };
 
 // ═══════════════════════════════════════════════════════

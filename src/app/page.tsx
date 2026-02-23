@@ -60,7 +60,7 @@ export default function HomePage() {
             width: 48,
             height: 48,
             borderRadius: 12,
-            background: "linear-gradient(135deg, #F97316, #FF6B2B)",
+            background: "linear-gradient(135deg, #86D5F4, #FD6EF8)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -72,7 +72,7 @@ export default function HomePage() {
         >
           L
         </div>
-        <p style={{ color: "#7C86A2", fontSize: 14 }}>Loading your arena...</p>
+        <p style={{ color: "#999999", fontSize: 14 }}>Loading your arena...</p>
       </div>
     );
   }

@@ -26,7 +26,7 @@ export async function GET() {
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "Session" ("id" TEXT NOT NULL, "sessionToken" TEXT NOT NULL, "userId" TEXT NOT NULL, "expires" TIMESTAMP(3) NOT NULL, CONSTRAINT "Session_pkey" PRIMARY KEY ("id"))`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "VerificationToken" ("identifier" TEXT NOT NULL, "token" TEXT NOT NULL, "expires" TIMESTAMP(3) NOT NULL)`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "q12_dimensions" ("id" INTEGER NOT NULL, "title" TEXT NOT NULL, "description" TEXT NOT NULL, CONSTRAINT "q12_dimensions_pkey" PRIMARY KEY ("id"))`);
-    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "core_values" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "description" TEXT NOT NULL, "color" TEXT NOT NULL DEFAULT '#F97316', CONSTRAINT "core_values_pkey" PRIMARY KEY ("id"))`);
+    await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "core_values" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "description" TEXT NOT NULL, "color" TEXT NOT NULL DEFAULT '#FFAA53', CONSTRAINT "core_values_pkey" PRIMARY KEY ("id"))`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "key_behaviors" ("id" INTEGER NOT NULL, "name" TEXT NOT NULL, "description" TEXT NOT NULL, CONSTRAINT "key_behaviors_pkey" PRIMARY KEY ("id"))`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "scenarios" ("id" TEXT NOT NULL, "title" TEXT NOT NULL, "description" TEXT NOT NULL, "difficulty" TEXT NOT NULL, "estimated_time_minutes" INTEGER NOT NULL, "primary_q12_id" INTEGER NOT NULL, "secondary_q12_id" INTEGER, "core_value_id" TEXT NOT NULL, "is_active" BOOLEAN NOT NULL DEFAULT true, "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "scenarios_pkey" PRIMARY KEY ("id"))`);
     await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "scenario_nodes" ("id" TEXT NOT NULL, "scenario_id" TEXT NOT NULL, "node_type" "NodeType" NOT NULL, "content_text" TEXT NOT NULL, "order_index" INTEGER NOT NULL, CONSTRAINT "scenario_nodes_pkey" PRIMARY KEY ("id"))`);
@@ -105,10 +105,10 @@ export async function GET() {
 
     results.push("Seeding Core Values...");
     const coreValues = [
-      { id: "no-ego", name: "No Ego, All In", description: "Stay humble and work together.", color: "#F59E0B" },
-      { id: "better", name: "Better Every Day", description: "Embrace curiosity and growth.", color: "#10B981" },
-      { id: "relentless", name: "Relentless for Results", description: "Be driven to win and achieve goals.", color: "#EF4444" },
-      { id: "truth", name: "Driven by Truth", description: "Speak up even when it's tough.", color: "#6366F1" },
+      { id: "no-ego", name: "No Ego, All In", description: "Stay humble and work together.", color: "#FFAA53" },
+      { id: "better", name: "Better Every Day", description: "Embrace curiosity and growth.", color: "#8EE34D" },
+      { id: "relentless", name: "Relentless for Results", description: "Be driven to win and achieve goals.", color: "#FD6EF8" },
+      { id: "truth", name: "Driven by Truth", description: "Speak up even when it's tough.", color: "#86D5F4" },
     ];
     for (const cv of coreValues) {
       await prisma.coreValue.upsert({ where: { id: cv.id }, update: cv, create: cv });
