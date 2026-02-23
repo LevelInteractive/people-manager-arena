@@ -57,20 +57,28 @@ THEIR ${priorExchanges.length > 0 ? "LATEST" : "INITIAL"} RESPONSE:
 "${userReflection}"
 
 YOUR COACHING TASK (Exchange #${exchangeNumber} of max 3):
+
+IMPORTANT — CALIBRATE YOUR RESPONSE TO THEIR QUALITY:
+- If their response is thoughtful, specific, and shows real management instinct — AFFIRM that. Name exactly what they got right and why it matters. Then invite them to go one layer deeper. Don't challenge for the sake of challenging.
+- If their response is vague, surface-level, or generic — that's when you push harder. Ask them to get concrete.
+- If their response is partially strong — celebrate the strong part, then redirect on the weak part.
+A great coach makes people feel seen when they nail it AND pushes them when they're coasting. Do both as needed.
+
 ${exchangeNumber === 1
-  ? `This is their first reflection. Acknowledge ONE specific thing they said (don't just summarize), then ask ONE sharp follow-up question that pushes them to:
-- Get more specific about what they'd actually DO (actions, not ideas)
-- Connect their thinking to "${scenarioContext.coreValueName}" or one of the key behaviors
-- Think about the impact on their team members, not just the situation`
+  ? `This is their first reflection. Start by genuinely acknowledging what's strong in their response — be specific about which part shows good instinct and why. Then ask ONE follow-up question. If their answer was already strong, the question should be an invitation to go deeper (not a correction), like exploring:
+- How they'd handle the hardest version of this moment
+- What "${scenarioContext.coreValueName}" looks like in the specific words they'd use
+- How different team members might experience their approach differently
+If their answer was vague, push for specifics: what would they actually DO, SAY, or DECIDE?`
   : exchangeNumber === 2
-  ? `They've engaged with your first question. Go deeper on whatever they said. Push them to:
-- Name the specific conversation they'd have, or the exact first step they'd take
-- Consider what could go wrong with their approach
-- Think about how "${scenarioContext.coreValueName}" shows up in their specific actions`
-  : `This is the final exchange. Synthesize what they've developed across the conversation. Give them ONE concrete, memorable takeaway they can carry into a real situation. Connect it back to "${scenarioContext.coreValueName}" and the Q12 dimension "${scenarioContext.q12Title}". Make it feel like a mentor's parting wisdom, not a summary.`
+  ? `They've engaged with your first question. Match your energy to theirs:
+- If they're showing real depth, tell them what's landing well and explore an edge case or complication — frame it as expanding their toolkit, not fixing a gap
+- If they're still surface-level, anchor them: ask for the exact first conversation, the specific words, or the 48-hour action plan
+- Either way, weave in "${scenarioContext.coreValueName}" — not as a test, but as a lens that sharpens their thinking`
+  : `This is the final exchange. Synthesize what they've developed across the conversation. If they've shown strong thinking, honor that — tell them what specifically makes their approach effective as a manager. Give them ONE concrete, memorable takeaway they can carry into a real situation. Connect it back to "${scenarioContext.coreValueName}" and the Q12 dimension "${scenarioContext.q12Title}". Make it feel like a mentor's genuine endorsement and parting wisdom, not a correction or summary.`
 }
 
-TONE: Direct but warm. Like a trusted mentor at a whiteboard, not a professor lecturing. Use "you" language. Keep it conversational — no bullet points, no formal structure. 2-4 sentences max.
+TONE: Warm and direct. Like a trusted mentor who genuinely respects the person they're coaching. Affirm what's good before building on it. Use "you" language. Keep it conversational — no bullet points, no formal structure. 2-4 sentences max.
 
 RESPOND ONLY with the coaching message. No preamble, no labels, no quotes around it.`;
 
@@ -106,7 +114,7 @@ export async function generateDecisionFeedback(
   chosenChoice: ChoiceInfo,
   bestChoice: ChoiceInfo
 ): Promise<string> {
-  const prompt = `You are an executive leadership coach. A manager just made a decision in a scenario and didn't pick the strongest option. Give them a brief, constructive nudge — not criticism.
+  const prompt = `You are an executive leadership coach. A manager made a decision in a scenario — their choice wasn't the strongest available, but it may still have real merit. Your job is to coach, not criticize.
 
 SCENARIO: ${scenarioContext.title}
 CORE VALUE: ${scenarioContext.coreValueName} — ${scenarioContext.coreValueDescription}
@@ -114,13 +122,17 @@ Q12 DIMENSION: ${scenarioContext.q12Title}
 
 SITUATION: ${nodePrompt}
 
-WHAT THEY CHOSE: "${chosenChoice.choiceText}"
+WHAT THEY CHOSE: "${chosenChoice.choiceText}" (Score: ${chosenChoice.pointsBase + chosenChoice.q12Impact})
 
-THE STRONGER OPTION: "${bestChoice.choiceText}"
+THE STRONGER OPTION: "${bestChoice.choiceText}" (Score: ${bestChoice.pointsBase + bestChoice.q12Impact})
 
-Write 1-2 sentences explaining why the stronger option better develops them as a manager in this situation. Reference the core value "${scenarioContext.coreValueName}" or Q12 dimension "${scenarioContext.q12Title}" if it adds clarity. Don't say "the better choice was..." — instead frame it as "Consider how..." or "A key insight here is..." to make it forward-looking.
+COACHING APPROACH:
+- First, if their choice has genuine strengths, briefly acknowledge what's reasonable about it (1 short clause is fine)
+- Then explain the key insight about why the stronger option is more effective — frame it as a learning moment, not a mistake
+- Reference "${scenarioContext.coreValueName}" or "${scenarioContext.q12Title}" only if it genuinely adds clarity
+- Use framing like "The edge here is..." or "What separates good from great here is..." — forward-looking, not backward-looking
 
-RESPOND ONLY with the 1-2 sentence coaching note. No preamble.`;
+RESPOND ONLY with the 2-3 sentence coaching note. No preamble.`;
 
   try {
     const response = await anthropic.messages.create({
@@ -138,6 +150,48 @@ RESPOND ONLY with the 1-2 sentence coaching note. No preamble.`;
   }
 }
 
+// ─── Optimal Decision Affirmation ────────────────────
+
+export async function generateOptimalDecisionFeedback(
+  scenarioContext: ScenarioContext,
+  nodePrompt: string,
+  chosenChoice: ChoiceInfo
+): Promise<string> {
+  const prompt = `You are an executive leadership coach. A manager just made the strongest decision available in a scenario. Affirm their instinct and deepen their understanding of WHY it was effective.
+
+SCENARIO: ${scenarioContext.title}
+CORE VALUE: ${scenarioContext.coreValueName} — ${scenarioContext.coreValueDescription}
+Q12 DIMENSION: ${scenarioContext.q12Title}
+
+SITUATION: ${nodePrompt}
+
+WHAT THEY CHOSE (the optimal choice): "${chosenChoice.choiceText}"
+
+Write 2-3 sentences that:
+1. Affirm their decision with specificity — name what makes this the strongest move (not just "good job")
+2. Explain the leadership principle it demonstrates — connect it to "${scenarioContext.coreValueName}" or "${scenarioContext.q12Title}" in a way that deepens their understanding
+3. Give them something to carry forward — a broader insight about when this kind of decision matters most
+
+Be genuinely encouraging. This person showed good judgment — help them understand their own instinct so they can replicate it.
+
+RESPOND ONLY with the coaching note. No preamble.`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 200,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = response.content[0];
+    if (text.type === "text") return text.text.trim();
+    return `Strong instinct here. Choosing "${chosenChoice.choiceText.substring(0, 60)}..." shows you understand what "${scenarioContext.coreValueName}" looks like in practice — not just as a value on the wall, but as a real decision under pressure.`;
+  } catch (error) {
+    console.error("Anthropic API error (optimal decision):", error);
+    return `Strong instinct here. This choice demonstrates "${scenarioContext.coreValueName}" in action — the kind of decision that builds trust with your team over time.`;
+  }
+}
+
 // ─── Fallbacks (when API is unavailable) ─────────────
 
 function getFallbackReflectionCoaching(
@@ -146,19 +200,19 @@ function getFallbackReflectionCoaching(
 ): string {
   const fallbacks: Record<number, string[]> = {
     1: [
-      `That's a solid start. Now get specific — what's the very first conversation you'd have, and with whom? Think about how "${ctx.coreValueName}" would guide your opening line.`,
-      `Good thinking. But I want to push you — what would you actually say in the first 5 minutes? How does "${ctx.coreValueName}" show up in your approach, not just your intent?`,
-      `You're on the right track. Now zoom in — what specific action would you take in the next 48 hours, and how would your team experience "${ctx.coreValueName}" through that action?`,
+      `There's real thought behind that — I can tell you're considering the human side, not just the tactical side. Now take it one step further: what's the very first conversation you'd have, and what would your opening line sound like?`,
+      `You're already thinking about this the right way. I'm curious — what would you actually say in the first 5 minutes? How does "${ctx.coreValueName}" show up in your words, not just your intent?`,
+      `That's a solid read on the situation. Now zoom in — what specific action would you take in the next 48 hours, and how would your team experience "${ctx.coreValueName}" through that action?`,
     ],
     2: [
-      `Getting closer. Now think about what could go wrong with your approach. What's the biggest risk, and how would you handle it while staying true to "${ctx.coreValueName}"?`,
-      `Good — you're getting more concrete. But consider the person on the other side of this conversation. What are they feeling right now, and how does that change your approach?`,
-      `I like the direction. Now think about the ripple effect — how does your team interpret this move? Does it reinforce "${ctx.coreValueName}" or undermine it?`,
+      `You're building something strong here. Now stress-test it — what could go wrong with this approach, and how would you adapt while staying true to "${ctx.coreValueName}"?`,
+      `I like how concrete you're getting. Now consider the person on the other side of this conversation — what are they feeling, and how does that awareness sharpen your approach?`,
+      `That's a smart instinct. Now think about the ripple effect — how does your team interpret this move? What message does it send about "${ctx.coreValueName}"?`,
     ],
     3: [
-      `Here's what I want you to remember: the best managers don't just solve the problem — they use moments like this to show the team what "${ctx.coreValueName}" looks like in action. That's what separates good from great.`,
-      `Strong work developing this. The takeaway: "${ctx.q12Title}" isn't just a score — it's a daily practice. The way you handle this scenario sends a message about what kind of leader you are.`,
-      `You've come a long way on this one. Remember: your team is always watching how you handle the hard moments. Living "${ctx.coreValueName}" here builds the kind of trust that makes everything else easier.`,
+      `You've shown real growth in how you're thinking about this. Here's the takeaway: the best managers use moments like this to show the team what "${ctx.coreValueName}" looks like in action. You're already thinking that way.`,
+      `Strong work developing this. "${ctx.q12Title}" isn't just a score — it's a daily practice. The fact that you're thinking this carefully about your approach tells me you're the kind of leader who takes that seriously.`,
+      `You've really worked through this well. Remember: your team notices how you handle the hard moments. The way you're approaching "${ctx.coreValueName}" here is exactly what builds lasting trust.`,
     ],
   };
 

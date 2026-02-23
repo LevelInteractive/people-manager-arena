@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
-import { generateDecisionFeedback } from "@/lib/anthropic";
+import { generateDecisionFeedback, generateOptimalDecisionFeedback } from "@/lib/anthropic";
 
 // POST /api/coaching/decision — Get feedback when non-optimal choice is selected
 export async function POST(req: NextRequest) {
@@ -74,11 +74,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If chosen IS the best choice, no feedback needed
-    if (bestChoice.id === chosenChoice.id) {
-      return NextResponse.json({ feedback: null, isOptimal: true });
-    }
-
     // Gather key behaviors
     const behaviorNames: string[] = [];
     node.choices.forEach((c) =>
@@ -97,6 +92,25 @@ export async function POST(req: NextRequest) {
       q12Description: scenario.primaryQ12.description,
       keyBehaviors: behaviorNames.slice(0, 6),
     };
+
+    const isOptimal = bestChoice.id === chosenChoice.id;
+
+    // If chosen IS the best choice, give affirmation coaching
+    if (isOptimal) {
+      const feedback = await generateOptimalDecisionFeedback(
+        scenarioContext,
+        node.contentText,
+        {
+          choiceText: chosenChoice.choiceText,
+          pointsBase: chosenChoice.pointsBase,
+          q12Impact: chosenChoice.q12Impact,
+          coreValueAlignment: (chosenChoice.coreValueAlignment as Record<string, number>) || {},
+          explanationText: chosenChoice.explanationText,
+        }
+      );
+
+      return NextResponse.json({ feedback, isOptimal: true });
+    }
 
     const feedback = await generateDecisionFeedback(
       scenarioContext,
