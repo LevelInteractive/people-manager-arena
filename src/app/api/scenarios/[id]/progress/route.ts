@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 
@@ -54,7 +55,7 @@ export async function POST(
         cultureScoreTotal: cultureScoreTotal || 0,
         choicesJson: choicesJson || {},
         completedAt: new Date(),
-        gameStateJson: null, // Clear game state on completion
+        gameStateJson: Prisma.DbNull, // Clear game state on completion
       },
     });
   } else {
@@ -125,7 +126,7 @@ export async function PUT(
         userId: session!.user.id,
         scenarioId: params.id,
         currentNodeIndex: currentNodeIndex || 0,
-        gameStateJson: gameStateJson || null,
+        gameStateJson: gameStateJson || Prisma.DbNull,
         scoreTotal: scoreTotal || 0,
         q12ScoreTotal: q12ScoreTotal || 0,
         cultureScoreTotal: cultureScoreTotal || 0,
