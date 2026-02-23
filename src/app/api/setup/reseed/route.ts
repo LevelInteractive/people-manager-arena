@@ -38,9 +38,25 @@ interface ScenarioData {
 }
 
 async function seedScenario(data: ScenarioData) {
-  // Delete existing scenario with same title (cascade deletes nodes, choices, behaviors)
+  // Delete existing scenario with same title
   const existing = await prisma.scenario.findFirst({ where: { title: data.title } });
   if (existing) {
+    // Delete dependent records that don't have onDelete: Cascade
+    await prisma.userScenarioProgress.deleteMany({ where: { scenarioId: existing.id } });
+    await prisma.eventLog.deleteMany({ where: { scenarioId: existing.id } });
+    await prisma.feedbackSubmission.deleteMany({ where: { scenarioId: existing.id } });
+    await prisma.bugReport.deleteMany({ where: { scenarioId: existing.id } });
+    // Delete reflection responses tied to this scenario's nodes
+    const nodeIds = await prisma.scenarioNode.findMany({
+      where: { scenarioId: existing.id },
+      select: { id: true },
+    });
+    if (nodeIds.length > 0) {
+      await prisma.reflectionResponse.deleteMany({
+        where: { nodeId: { in: nodeIds.map(n => n.id) } },
+      });
+    }
+    // Now safe to delete scenario (cascade handles nodes, choices, behaviors)
     await prisma.scenario.delete({ where: { id: existing.id } });
   }
 
