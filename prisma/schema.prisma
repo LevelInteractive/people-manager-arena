@@ -75,6 +75,7 @@ model User {
   feedbackSubmissions FeedbackSubmission[]
   bugReports         BugReport[]
   reflectionResponses ReflectionResponse[]
+  coachingExchanges   CoachingExchange[]
 
   @@map("users")
 }
@@ -263,6 +264,23 @@ model FeedbackSubmission {
   scenario Scenario @relation(fields: [scenarioId], references: [id])
 
   @@map("feedback_submissions")
+}
+
+model CoachingExchange {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  scenarioId     String   @map("scenario_id")
+  nodeId         String   @map("node_id")
+  exchangeNumber Int      @map("exchange_number")
+  coachMessage   String   @map("coach_message") @db.Text
+  userResponse   String   @map("user_response") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([scenarioId])
+  @@map("coaching_exchanges")
 }
 
 enum BugStatus {

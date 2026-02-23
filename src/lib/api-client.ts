@@ -37,6 +37,32 @@ export const api = {
       fetchAPI<any>("/api/reflections", { method: "POST", body: JSON.stringify(data) }),
   },
 
+  // ─── Coaching ───
+  coaching: {
+    reflect: (data: {
+      scenarioId: string;
+      nodeId: string;
+      userResponse: string;
+      exchangeNumber: number;
+      priorExchanges?: Array<{ coachMessage: string; userResponse: string }>;
+    }) => fetchAPI<{
+      coachMessage: string;
+      exchangeNumber: number;
+      canContinue: boolean;
+      maxExchangesReached: boolean;
+    }>("/api/coaching/reflect", { method: "POST", body: JSON.stringify(data) }),
+
+    decision: (data: {
+      scenarioId: string;
+      nodeId: string;
+      chosenChoiceId: string;
+    }) => fetchAPI<{
+      feedback: string | null;
+      isOptimal: boolean;
+      bestChoicePreview?: string;
+    }>("/api/coaching/decision", { method: "POST", body: JSON.stringify(data) }),
+  },
+
   // ─── Feedback ───
   feedback: {
     submit: (scenarioId: string, data: any) =>

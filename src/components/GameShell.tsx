@@ -408,12 +408,24 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
   const [selChoice, setSelChoice] = useState<any>(null);
   const [showExpl, setShowExpl] = useState(false);
 
+  // Coaching state
+  const [coachingActive, setCoachingActive] = useState(false);
+  const [coachingLoading, setCoachingLoading] = useState(false);
+  const [coachMessage, setCoachMessage] = useState("");
+  const [coachExchanges, setCoachExchanges] = useState<Array<{ coachMessage: string; userResponse: string }>>([]);
+  const [exchangeNumber, setExchangeNumber] = useState(0);
+  const [coachReplyText, setCoachReplyText] = useState("");
+  const [decisionFeedback, setDecisionFeedback] = useState<string | null>(null);
+  const [decisionFeedbackLoading, setDecisionFeedbackLoading] = useState(false);
+
   const nodes = scenario.nodes || [];
   const current = nodes[gameState.currentNodeIndex];
   const isOver = gameState.currentNodeIndex >= nodes.length;
 
   useEffect(() => {
     setReflText(""); setSelChoice(null); setShowExpl(false);
+    setCoachingActive(false); setCoachMessage(""); setCoachExchanges([]);
+    setExchangeNumber(0); setCoachReplyText(""); setDecisionFeedback(null);
   }, [gameState.currentNodeIndex]);
 
   if (isOver || (current?.nodeType === "OUTCOME" && showExpl)) {
@@ -460,7 +472,7 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
         </div>
 
         {/* REFLECTION */}
-        {current.nodeType === "REFLECTION" && !showExpl && (
+        {current.nodeType === "REFLECTION" && !showExpl && !coachingActive && (
           <div>
             <textarea value={reflText} onChange={(e: any) => setReflText(e.target.value)}
               placeholder="Share your thoughts... (minimum 20 characters)"
@@ -472,9 +484,99 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
             />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
               <span style={{ fontSize: 12, color: T.textMuted }}>{reflText.length} characters</span>
-              <Btn onClick={() => onNodeComplete({ type: "reflection", text: reflText, nodeId: current.id })}
-                disabled={reflText.trim().length < 20}>Submit & Continue →</Btn>
+              <Btn onClick={async () => {
+                setCoachingLoading(true);
+                try {
+                  const res = await api.coaching.reflect({
+                    scenarioId: scenario.id, nodeId: current.id,
+                    userResponse: reflText, exchangeNumber: 1, priorExchanges: [],
+                  });
+                  setCoachMessage(res.coachMessage);
+                  setExchangeNumber(1);
+                  setCoachExchanges([]);
+                  setCoachingActive(true);
+                } catch (err) {
+                  console.error("Coaching error:", err);
+                  onNodeComplete({ type: "reflection", text: reflText, nodeId: current.id });
+                } finally { setCoachingLoading(false); }
+              }} disabled={reflText.trim().length < 20 || coachingLoading}>
+                {coachingLoading ? "Thinking..." : "Submit Reflection →"}
+              </Btn>
             </div>
+          </div>
+        )}
+
+        {/* COACHING LOOP */}
+        {current.nodeType === "REFLECTION" && coachingActive && (
+          <div className="animate-slide-up">
+            {/* Show prior exchanges */}
+            {coachExchanges.map((ex, i) => (
+              <div key={i} style={{ marginBottom: 16 }}>
+                <div style={{ background: T.accent + "11", borderRadius: 12, padding: 16, marginBottom: 8, borderLeft: `3px solid ${T.accent}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 6 }}>🎯 Coach (Exchange {i + 1})</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.7, color: T.text }}>{ex.coachMessage}</div>
+                </div>
+                <div style={{ background: T.bg, borderRadius: 12, padding: 16, borderLeft: `3px solid ${T.textMuted}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, marginBottom: 6 }}>You</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.7, color: T.textDim }}>{ex.userResponse}</div>
+                </div>
+              </div>
+            ))}
+
+            {/* Current coach message */}
+            <div style={{ background: T.accent + "11", borderRadius: 12, padding: 16, marginBottom: 16, borderLeft: `3px solid ${T.accent}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 6 }}>
+                🎯 Coach {exchangeNumber < 3 ? `(Exchange ${exchangeNumber} of 3)` : "(Final Thought)"}
+              </div>
+              <div style={{ fontSize: 15, lineHeight: 1.8, color: T.text }}>{coachMessage}</div>
+            </div>
+
+            {/* Reply or Continue */}
+            {exchangeNumber < 3 ? (
+              <div>
+                <textarea value={coachReplyText} onChange={(e: any) => setCoachReplyText(e.target.value)}
+                  placeholder="Respond to the coach... (or continue to next section)"
+                  style={{
+                    width: "100%", minHeight: 100, padding: 16, background: T.bg,
+                    border: `1px solid ${T.border}`, borderRadius: 12, color: T.text,
+                    fontSize: 15, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit",
+                  }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, gap: 12 }}>
+                  <Btn onClick={() => onNodeComplete({ type: "reflection", text: reflText, nodeId: current.id })}
+                    style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim }}>
+                    Skip & Continue →
+                  </Btn>
+                  <Btn onClick={async () => {
+                    if (coachReplyText.trim().length < 10) return;
+                    setCoachingLoading(true);
+                    const newExchanges = [...coachExchanges, { coachMessage, userResponse: coachReplyText }];
+                    try {
+                      const res = await api.coaching.reflect({
+                        scenarioId: scenario.id, nodeId: current.id,
+                        userResponse: coachReplyText, exchangeNumber: exchangeNumber + 1,
+                        priorExchanges: newExchanges,
+                      });
+                      setCoachExchanges(newExchanges);
+                      setCoachMessage(res.coachMessage);
+                      setExchangeNumber(exchangeNumber + 1);
+                      setCoachReplyText("");
+                    } catch (err) {
+                      console.error("Coaching error:", err);
+                      onNodeComplete({ type: "reflection", text: reflText, nodeId: current.id });
+                    } finally { setCoachingLoading(false); }
+                  }} disabled={coachReplyText.trim().length < 10 || coachingLoading}>
+                    {coachingLoading ? "Thinking..." : "Respond to Coach →"}
+                  </Btn>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <Btn onClick={() => onNodeComplete({ type: "reflection", text: reflText, nodeId: current.id })}>
+                  Continue to Next Section →
+                </Btn>
+              </div>
+            )}
           </div>
         )}
 
@@ -545,8 +647,49 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
                 </div>
               )}
             </div>
+
+            {/* Decision Coaching Feedback */}
+            {decisionFeedback && (
+              <div style={{
+                background: T.warning + "11", borderRadius: 12, padding: 20, marginBottom: 20,
+                borderLeft: `3px solid ${T.warning}`,
+              }} className="animate-slide-up">
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.warning, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                  🎯 Coach&apos;s Note
+                </div>
+                <p style={{ fontSize: 15, lineHeight: 1.8, color: T.text, margin: 0 }}>{decisionFeedback}</p>
+              </div>
+            )}
+            {decisionFeedbackLoading && (
+              <div style={{ textAlign: "center", padding: 16, color: T.textMuted, fontSize: 13 }}>
+                Getting coach feedback...
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <Btn onClick={() => onNodeComplete({ type: "choice", choice: selChoice, nodeId: current.id })}>Continue →</Btn>
+              <Btn onClick={() => {
+                // Fetch decision feedback if not already loaded
+                if (!decisionFeedback && !decisionFeedbackLoading) {
+                  setDecisionFeedbackLoading(true);
+                  api.coaching.decision({
+                    scenarioId: scenario.id, nodeId: current.id, chosenChoiceId: selChoice.id,
+                  }).then(res => {
+                    if (res.feedback) setDecisionFeedback(res.feedback);
+                    setDecisionFeedbackLoading(false);
+                    // Auto-continue after a brief moment if optimal
+                    if (res.isOptimal) {
+                      onNodeComplete({ type: "choice", choice: selChoice, nodeId: current.id });
+                    }
+                  }).catch(() => {
+                    setDecisionFeedbackLoading(false);
+                    onNodeComplete({ type: "choice", choice: selChoice, nodeId: current.id });
+                  });
+                } else {
+                  onNodeComplete({ type: "choice", choice: selChoice, nodeId: current.id });
+                }
+              }}>
+                {!decisionFeedback && !decisionFeedbackLoading ? "Get Feedback & Continue →" : "Continue →"}
+              </Btn>
             </div>
           </div>
         )}
