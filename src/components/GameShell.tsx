@@ -12,11 +12,11 @@ import api from "@/lib/api-client";
 // THEME
 // ═══════════════════════════════════════════════════════
 const T = {
-  bg: "#0C0F1A", surface: "#151929", surfaceHover: "#1C2237",
-  border: "#252B42", accent: "#F97316", accentDim: "rgba(249,115,22,0.15)",
-  accentGlow: "rgba(249,115,22,0.4)", text: "#E8ECF4", textDim: "#7C86A2",
-  textMuted: "#4A5272", success: "#10B981", danger: "#EF4444",
-  warning: "#F59E0B", info: "#6366F1",
+  bg: "#000000", surface: "#111111", surfaceHover: "#1A1A1A",
+  border: "#2A2A2A", accent: "#86D5F4", accentDim: "rgba(134,213,244,0.12)",
+  accentGlow: "rgba(134,213,244,0.35)", text: "#FFFFFF", textDim: "#999999",
+  textMuted: "#666666", success: "#8EE34D", danger: "#EF4444",
+  warning: "#FFAA53", info: "#FD6EF8", gray: "#D9DEF0",
 };
 
 // ═══════════════════════════════════════════════════════
@@ -46,7 +46,7 @@ function Card({ children, style = {}, onClick }: any) {
 
 function Btn({ children, onClick, variant = "primary", disabled = false, style = {} }: any) {
   const vars: any = {
-    primary: { background: T.accent, color: "#fff" },
+    primary: { background: T.accent, color: "#000" },
     secondary: { background: T.surfaceHover, color: T.text, border: `1px solid ${T.border}` },
     ghost: { background: "transparent", color: T.textDim },
     danger: { background: T.danger + "22", color: T.danger, border: `1px solid ${T.danger}44` },
@@ -245,7 +245,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
         <div onClick={() => nav("home")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
-            background: "linear-gradient(135deg, #F97316, #FF6B2B)",
+            background: "linear-gradient(135deg, #86D5F4, #FD6EF8)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontWeight: 800, fontSize: 16, color: "#fff",
           }}>L</div>
@@ -280,7 +280,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
             ) : (
               <div style={{
                 width: 28, height: 28, borderRadius: "50%",
-                background: "linear-gradient(135deg, #F97316, #FF6B2B)",
+                background: "linear-gradient(135deg, #86D5F4, #FD6EF8)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 12, fontWeight: 700, color: "#fff",
               }}>{user.name?.[0] || "?"}</div>
@@ -453,7 +453,7 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
             <Badge color={scenario.coreValue?.color}>{scenario.coreValue?.name}</Badge>
             <span style={{ marginLeft: 8, fontSize: 13, color: T.textDim }}>{scenario.title}</span>
           </div>
-          <span style={{ fontSize: 13, color: T.textMuted, fontFamily: "'JetBrains Mono'" }}>
+          <span style={{ fontSize: 13, color: T.textMuted, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>
             {gameState.currentNodeIndex + 1} / {nodes.length}
           </span>
         </div>
@@ -624,7 +624,7 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
                     display: "flex", alignItems: "center", gap: 6,
                   }}>
                     <span style={{ fontSize: 11, color: T.textMuted }}>{s.label}</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: (s.value as number) >= 0 ? T.success : T.danger, fontFamily: "'JetBrains Mono'" }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: (s.value as number) >= 0 ? T.success : T.danger, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>
                       {(s.value as number) > 0 ? "+" : ""}{s.value}
                     </span>
                   </div>
@@ -745,7 +745,7 @@ function ResultsView({ scenario, gameState, q12, coreValues, keyBehaviors, onBac
           { label: "Culture Score", value: `${gameState.cultureScore >= 0 ? "+" : ""}${gameState.cultureScore}`, color: gameState.cultureScore >= 0 ? T.success : T.danger },
         ].map(s => (
           <Card key={s.label} style={{ textAlign: "center", padding: 24 }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: s.color, fontFamily: "'JetBrains Mono'" }}>{s.value}</div>
+            <div style={{ fontSize: 36, fontWeight: 900, color: s.color, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{s.value}</div>
             <div style={{ fontSize: 13, color: T.textDim, marginTop: 4 }}>{s.label}</div>
           </Card>
         ))}
@@ -758,7 +758,7 @@ function ResultsView({ scenario, gameState, q12, coreValues, keyBehaviors, onBac
           <div key={cv.name} style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontSize: 14, fontWeight: 600 }}>{cv.name}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "'JetBrains Mono'", color: cv.value >= 0 ? T.success : T.danger }}>
+              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "'Inter Tight', 'JetBrains Mono'", color: cv.value >= 0 ? T.success : T.danger }}>
                 {cv.value >= 0 ? "+" : ""}{cv.value}
               </span>
             </div>
@@ -869,7 +869,7 @@ function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
                     width: 40, height: 40, borderRadius: 10,
                     background: T.accentDim, display: "flex", alignItems: "center",
                     justifyContent: "center", fontWeight: 800, fontSize: 16,
-                    color: T.accent, fontFamily: "'JetBrains Mono'", flexShrink: 0,
+                    color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'", flexShrink: 0,
                   }}>Q{dim.id}</div>
                   <h3 style={{ fontSize: 16, fontWeight: 700 }}>{dim.title}</h3>
                 </div>
@@ -924,7 +924,7 @@ function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
                     width: 32, height: 32, borderRadius: 8, flexShrink: 0,
                     background: T.accent + "15", display: "flex", alignItems: "center",
                     justifyContent: "center", fontSize: 13, fontWeight: 800,
-                    color: T.accent, fontFamily: "'JetBrains Mono'",
+                    color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'",
                   }}>{kb.id}</div>
                   <div>
                     <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{kb.name}</h4>
@@ -951,7 +951,7 @@ function ProfileView({ user, stats, q12, coreValues, recent }: any) {
           <img src={user.image} alt="" style={{ width: 72, height: 72, borderRadius: "50%" }} />
         ) : (
           <div style={{
-            width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #F97316, #FF6B2B)",
+            width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #86D5F4, #FD6EF8)",
             display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "#fff",
           }}>{user.name?.[0]}</div>
         )}
@@ -961,15 +961,15 @@ function ProfileView({ user, stats, q12, coreValues, recent }: any) {
         </div>
         <div style={{ display: "flex", gap: 24, textAlign: "center" }}>
           <div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: T.accent, fontFamily: "'JetBrains Mono'" }}>{stats.totalScore || 0}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{stats.totalScore || 0}</div>
             <div style={{ fontSize: 12, color: T.textDim }}>Total Points</div>
           </div>
           <div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: T.success, fontFamily: "'JetBrains Mono'" }}>{stats.scenariosCompleted || 0}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: T.success, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{stats.scenariosCompleted || 0}</div>
             <div style={{ fontSize: 12, color: T.textDim }}>Completed</div>
           </div>
           <div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: T.warning, fontFamily: "'JetBrains Mono'" }}>{stats.avgScore || 0}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: T.warning, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{stats.avgScore || 0}</div>
             <div style={{ fontSize: 12, color: T.textDim }}>Avg Score</div>
           </div>
         </div>
@@ -989,7 +989,7 @@ function ProfileView({ user, stats, q12, coreValues, recent }: any) {
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{r.scenarioTitle}</div>
                 <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{new Date(r.completedAt).toLocaleDateString()}</div>
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: T.accent, fontFamily: "'JetBrains Mono'" }}>{r.score}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{r.score}</div>
             </div>
           ))
         )}
@@ -1045,7 +1045,7 @@ function LeaderboardView({ data, currentUserId }: any) {
               border: `1px solid ${rank <= 3 ? medals[rank - 1] + "66" : T.border}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontWeight: 800, fontSize: 14, color: rank <= 3 ? medals[rank - 1] : T.textMuted,
-              fontFamily: "'JetBrains Mono'",
+              fontFamily: "'Inter Tight', 'JetBrains Mono'",
             }}>{rank}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 15 }}>
@@ -1054,7 +1054,7 @@ function LeaderboardView({ data, currentUserId }: any) {
               <div style={{ fontSize: 12, color: T.textMuted }}>{p.scenariosCompleted} completed</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: isYou ? T.accent : T.text, fontFamily: "'JetBrains Mono'" }}>{p.totalScore}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: isYou ? T.accent : T.text, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{p.totalScore}</div>
               <div style={{ fontSize: 11, color: T.textMuted }}>points</div>
             </div>
           </div>
@@ -1111,7 +1111,7 @@ function AdminView({ data, q12, coreValues }: any) {
                     {e.userName && <span style={{ color: T.textDim }}>{e.userName}</span>}
                     {e.scenarioTitle && <span style={{ color: T.textMuted }}> · {e.scenarioTitle}</span>}
                   </span>
-                  <span style={{ color: T.textMuted, fontFamily: "'JetBrains Mono'", fontSize: 11 }}>
+                  <span style={{ color: T.textMuted, fontFamily: "'Inter Tight', 'JetBrains Mono'", fontSize: 11 }}>
                     {new Date(e.createdAt).toLocaleString()}
                   </span>
                 </div>
@@ -1153,7 +1153,7 @@ function AdminView({ data, q12, coreValues }: any) {
                   <div style={{ width: 10, height: 10, borderRadius: "50%", background: cv.color }} />
                   <h4 style={{ fontSize: 14, fontWeight: 700 }}>{cv.name}</h4>
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 800, fontFamily: "'JetBrains Mono'", color: T.accent }}>{cv.avgAlignment}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, fontFamily: "'Inter Tight', 'JetBrains Mono'", color: T.accent }}>{cv.avgAlignment}</div>
                 <div style={{ fontSize: 12, color: T.textMuted }}>avg alignment score</div>
               </div>
             ))}

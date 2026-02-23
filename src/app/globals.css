@@ -2,19 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --brand-bg: #0C0F1A;
-  --brand-surface: #151929;
-  --brand-surface-hover: #1C2237;
-  --brand-border: #252B42;
-  --brand-accent: #F97316;
-  --brand-accent-dim: rgba(249,115,22,0.15);
-  --brand-accent-glow: rgba(249,115,22,0.4);
-  --brand-text: #E8ECF4;
-  --brand-text-dim: #7C86A2;
-  --brand-text-muted: #4A5272;
+  --brand-bg: #000000;
+  --brand-surface: #111111;
+  --brand-surface-hover: #1A1A1A;
+  --brand-border: #2A2A2A;
+  --brand-accent: #86D5F4;
+  --brand-accent-dim: rgba(134,213,244,0.12);
+  --brand-accent-glow: rgba(134,213,244,0.35);
+  --brand-text: #FFFFFF;
+  --brand-text-dim: #999999;
+  --brand-text-muted: #666666;
+  --brand-gray: #D9DEF0;
+  --brand-blue: #86D5F4;
+  --brand-pink: #FD6EF8;
+  --brand-green: #8EE34D;
+  --brand-orange: #FFAA53;
 }
 
 * {
@@ -24,14 +29,18 @@
 }
 
 body {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   background: var(--brand-bg);
   color: var(--brand-text);
   -webkit-font-smoothing: antialiased;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter Tight', system-ui, sans-serif;
+}
+
 ::selection {
-  background: rgba(249, 115, 22, 0.25);
+  background: rgba(134, 213, 244, 0.25);
 }
 
 ::-webkit-scrollbar {
@@ -48,7 +57,7 @@ body {
 }
 
 textarea, input, select {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 @keyframes fadeIn {
@@ -68,7 +77,7 @@ textarea, input, select {
 
 @keyframes glow {
   0%, 100% { box-shadow: 0 0 20px var(--brand-accent-glow); }
-  50% { box-shadow: 0 0 40px var(--brand-accent-glow), 0 0 60px rgba(249,115,22,0.1); }
+  50% { box-shadow: 0 0 40px var(--brand-accent-glow), 0 0 60px rgba(134,213,244,0.08); }
 }
 
 .animate-fade-in {
