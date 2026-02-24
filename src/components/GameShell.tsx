@@ -319,29 +319,39 @@ function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: (
     </div>
   );
 
+  // Build a clip-path that cuts out the spotlight area from the overlay
+  const clipPath = spotlight
+    ? `polygon(
+        0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%,
+        ${spotlight.left}px ${spotlight.top}px,
+        ${spotlight.left}px ${spotlight.top + spotlight.height}px,
+        ${spotlight.left + spotlight.width}px ${spotlight.top + spotlight.height}px,
+        ${spotlight.left + spotlight.width}px ${spotlight.top}px,
+        ${spotlight.left}px ${spotlight.top}px
+      )`
+    : undefined;
+
   return (
     <>
-      {/* Full-screen click backdrop (only when no spotlight) */}
-      {!spotlight && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 2000,
-          background: "rgba(0,0,0,0.85)",
-        }} />
-      )}
+      {/* Full-screen dark overlay with optional spotlight cutout */}
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 2000,
+        background: "rgba(0,0,0,0.85)",
+        clipPath,
+      }} />
 
-      {/* Spotlight cutout with massive box-shadow acting as backdrop */}
+      {/* Spotlight border highlight */}
       {spotlight && (
         <div style={{
           position: "fixed", top: spotlight.top, left: spotlight.left,
           width: spotlight.width, height: spotlight.height,
-          borderRadius: 16, zIndex: 2000,
-          boxShadow: "0 0 0 9999px rgba(0,0,0,0.85)",
-          border: `2px solid ${T.accent}44`,
+          borderRadius: 16, zIndex: 2001,
+          border: `2px solid ${T.accent}66`,
           pointerEvents: "none",
         }} />
       )}
 
-      {/* Tooltip card — always fixed position */}
+      {/* Tooltip card — above everything */}
       {tooltipCard}
     </>
   );
