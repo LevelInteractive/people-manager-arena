@@ -80,6 +80,16 @@ async function main() {
     await prisma.keyBehavior.upsert({ where: { id: kb.id }, update: kb, create: kb });
   }
 
+  // ─── Bootstrap Admin ────────────────────────────────
+  console.log("  🔐 Ensuring initial admin (myles.biggs@level.agency)...");
+  // Reset all users to MANAGER first, then set the bootstrap admin
+  await prisma.user.updateMany({ where: { role: "ADMIN" }, data: { role: "MANAGER" } });
+  await prisma.user.upsert({
+    where: { email: "myles.biggs@level.agency" },
+    update: { role: "ADMIN" },
+    create: { email: "myles.biggs@level.agency", name: "Myles Biggs", role: "ADMIN" },
+  });
+
   // ─── Scenarios ───────────────────────────────────────
   console.log("  🎮 Seeding Scenarios...\n");
 

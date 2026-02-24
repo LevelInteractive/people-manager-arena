@@ -355,7 +355,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
           <LeaderboardView data={leaderboard} currentUserId={user.id} />
         )}
         {view === "admin" && user.role === "ADMIN" && adminData && (
-          <AdminView data={adminData} q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} />
+          <AdminView data={adminData} q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} currentUserId={user.id} />
         )}
       </main>
 
@@ -1513,7 +1513,7 @@ function LeaderboardView({ data, currentUserId }: any) {
 // ═══════════════════════════════════════════════════════
 // ADMIN VIEW
 // ═══════════════════════════════════════════════════════
-function AdminView({ data, q12, coreValues, keyBehaviors }: any) {
+function AdminView({ data, q12, coreValues, keyBehaviors, currentUserId }: any) {
   const [tab, setTab] = useState("usage");
   const usage = data.usage || {};
 
@@ -1523,8 +1523,8 @@ function AdminView({ data, q12, coreValues, keyBehaviors }: any) {
       <h1 style={{ fontSize: 28, fontWeight: 800, marginTop: 8, marginBottom: 8 }}>Dashboard</h1>
       <p style={{ color: T.textDim, marginBottom: 24 }}>Analytics and system health for Level Up.</p>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
-        {["usage", "q12", "culture", "scenarios", "bugs"].map(t => (
+      <div style={{ display: "flex", gap: 4, marginBottom: 24, flexWrap: "wrap" }}>
+        {["usage", "q12", "culture", "scenarios", "users", "bugs"].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             background: tab === t ? T.accentDim : "transparent", color: tab === t ? T.accent : T.textDim,
             border: `1px solid ${tab === t ? T.accent + "44" : T.border}`, borderRadius: 8,
@@ -1607,6 +1607,8 @@ function AdminView({ data, q12, coreValues, keyBehaviors }: any) {
       )}
 
       {tab === "scenarios" && <AdminScenariosTab scenarioHealth={data.scenarioHealth || []} q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} />}
+
+      {tab === "users" && <AdminUsersTab currentUserId={currentUserId} />}
 
       {tab === "bugs" && <AdminBugsTab />}
     </div>
@@ -2113,6 +2115,167 @@ function AdminScenariosTab({ scenarioHealth, q12, coreValues, keyBehaviors }: an
         );
       })}
       {scenarios.length === 0 && <Card><p style={{ color: T.textMuted, fontSize: 14, padding: 16 }}>No scenarios yet. Create your first one above.</p></Card>}
+    </div>
+  );
+}
+
+function AdminUsersTab({ currentUserId }: { currentUserId: string }) {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    api.admin.getUsers().then(u => { setUsers(u); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const toggleRole = async (userId: string, currentRole: string) => {
+    const newRole = currentRole === "ADMIN" ? "MANAGER" : "ADMIN";
+    const action = newRole === "ADMIN" ? "grant admin access to" : "remove admin access from";
+    const user = users.find(u => u.id === userId);
+    if (!confirm(`Are you sure you want to ${action} ${user?.name || user?.email}?`)) return;
+
+    setUpdating(userId);
+    try {
+      const updated = await api.admin.updateUserRole(userId, newRole);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updated } : u));
+    } catch (e: any) {
+      alert(e.message || "Failed to update role");
+    }
+    setUpdating(null);
+  };
+
+  const filtered = users.filter(u => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
+  });
+
+  const admins = filtered.filter(u => u.role === "ADMIN");
+  const managers = filtered.filter(u => u.role === "MANAGER");
+
+  if (loading) return <Card style={{ padding: 40, textAlign: "center" }}><p style={{ color: T.textMuted }}>Loading users...</p></Card>;
+
+  return (
+    <div>
+      <Card style={{ padding: 24, marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>User Management</h3>
+            <p style={{ color: T.textDim, fontSize: 13 }}>
+              {users.length} total users · {users.filter(u => u.role === "ADMIN").length} admins · {users.filter(u => u.role === "MANAGER").length} standard
+            </p>
+          </div>
+          <input
+            type="text" placeholder="Search by name or email..."
+            value={search} onChange={e => setSearch(e.target.value)}
+            style={{
+              background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 14px",
+              color: T.text, fontSize: 13, fontFamily: "inherit", width: 260,
+            }}
+          />
+        </div>
+      </Card>
+
+      {/* Admins section */}
+      {admins.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.info }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.info }}>Admins ({admins.length})</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {admins.map(u => (
+              <Card key={u.id} style={{ padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "50%", background: T.accentDim,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, fontSize: 13, color: T.accent,
+                  }}>{(u.name || u.email || "?").charAt(0).toUpperCase()}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name || "Unnamed"}</div>
+                    <div style={{ fontSize: 12, color: T.textMuted }}>{u.email}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  {u.lastLoginAt && (
+                    <span style={{ fontSize: 11, color: T.textMuted }}>
+                      Last login: {new Date(u.lastLoginAt).toLocaleDateString()}
+                    </span>
+                  )}
+                  {u.id === currentUserId ? (
+                    <Badge color={T.info}>You</Badge>
+                  ) : (
+                    <button
+                      onClick={() => toggleRole(u.id, u.role)}
+                      disabled={updating === u.id}
+                      style={{
+                        background: T.danger + "18", color: T.danger, border: `1px solid ${T.danger}44`,
+                        borderRadius: 6, padding: "6px 14px", fontSize: 11, fontWeight: 700,
+                        cursor: updating === u.id ? "wait" : "pointer", fontFamily: "inherit",
+                        opacity: updating === u.id ? 0.5 : 1,
+                      }}
+                    >
+                      {updating === u.id ? "..." : "Revoke Admin"}
+                    </button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Standard users section */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.success }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.success }}>Standard Users ({managers.length})</span>
+        </div>
+        {managers.length === 0 ? (
+          <Card style={{ padding: 24, textAlign: "center" }}>
+            <p style={{ color: T.textMuted, fontSize: 13 }}>{search ? "No matching users found." : "No standard users yet."}</p>
+          </Card>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {managers.map(u => (
+              <Card key={u.id} style={{ padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "50%", background: T.border,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, fontSize: 13, color: T.textDim,
+                  }}>{(u.name || u.email || "?").charAt(0).toUpperCase()}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name || "Unnamed"}</div>
+                    <div style={{ fontSize: 12, color: T.textMuted }}>{u.email}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  {u.lastLoginAt && (
+                    <span style={{ fontSize: 11, color: T.textMuted }}>
+                      Last login: {new Date(u.lastLoginAt).toLocaleDateString()}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => toggleRole(u.id, u.role)}
+                    disabled={updating === u.id}
+                    style={{
+                      background: T.accentDim, color: T.accent, border: `1px solid ${T.accent}44`,
+                      borderRadius: 6, padding: "6px 14px", fontSize: 11, fontWeight: 700,
+                      cursor: updating === u.id ? "wait" : "pointer", fontFamily: "inherit",
+                      opacity: updating === u.id ? 0.5 : 1,
+                    }}
+                  >
+                    {updating === u.id ? "..." : "Make Admin"}
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

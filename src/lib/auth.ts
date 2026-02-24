@@ -5,6 +5,10 @@ import prisma from "@/lib/prisma";
 
 const ALLOWED_DOMAINS = ["level.agency", "levelagency.com"];
 
+// Bootstrap admin — this email is always elevated to ADMIN on sign-in.
+// Once you have multiple admins, you can remove this constant.
+const BOOTSTRAP_ADMIN_EMAIL = "myles.biggs@level.agency";
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -38,9 +42,14 @@ export const authOptions: NextAuthOptions = {
             data: {
               email,
               name: email.split("@")[0].split(".").map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join(" "),
-              role: "MANAGER",
+              role: email === BOOTSTRAP_ADMIN_EMAIL ? "ADMIN" : "MANAGER",
             },
           });
+        }
+
+        // Bootstrap: ensure the designated admin always has ADMIN role
+        if (email === BOOTSTRAP_ADMIN_EMAIL && user.role !== "ADMIN") {
+          user = await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
         }
 
         // Update last login
@@ -82,9 +91,14 @@ export const authOptions: NextAuthOptions = {
             data: {
               email,
               name: user.name || email.split("@")[0].split(".").map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join(" "),
-              role: "MANAGER",
+              role: email === BOOTSTRAP_ADMIN_EMAIL ? "ADMIN" : "MANAGER",
             },
           });
+        }
+
+        // Bootstrap: ensure the designated admin always has ADMIN role
+        if (email === BOOTSTRAP_ADMIN_EMAIL && dbUser.role !== "ADMIN") {
+          await prisma.user.update({ where: { id: dbUser.id }, data: { role: "ADMIN" } });
         }
 
         // Update last login
@@ -97,7 +111,7 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       if (user) {
-        // For Google sign-in, look up the database user to get role and id
+        // Initial sign-in: set token fields from user/db
         if (account?.provider === "google" && user.email) {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email.toLowerCase().trim() },
@@ -109,6 +123,15 @@ export const authOptions: NextAuthOptions = {
         } else {
           token.role = (user as any).role;
           token.id = user.id;
+        }
+      } else if (token.id) {
+        // Subsequent requests: refresh role from DB so admin changes take effect immediately
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { role: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
         }
       }
       return token;

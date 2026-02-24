@@ -129,6 +129,9 @@ export const api = {
       fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes/${nodeId}/choices/${choiceId}`, { method: "PUT", body: JSON.stringify(data) }),
     deleteChoice: (scenarioId: string, nodeId: string, choiceId: string) =>
       fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes/${nodeId}/choices/${choiceId}`, { method: "DELETE" }),
+    getUsers: () => fetchAPI<any[]>("/api/admin/users"),
+    updateUserRole: (userId: string, role: "ADMIN" | "MANAGER") =>
+      fetchAPI<any>(`/api/admin/users/${userId}`, { method: "PUT", body: JSON.stringify({ role }) }),
   },
 
   // ─── Reference Data ───
