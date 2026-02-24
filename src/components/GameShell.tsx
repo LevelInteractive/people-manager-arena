@@ -791,8 +791,36 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
     i % 2 === 1 ? <strong key={i} style={{ color: T.accent }}>{part}</strong> : <span key={i}>{part}</span>
   );
 
+  // Show intro guide on first node
+  const [showIntro, setShowIntro] = useState(true);
+  const isFirstNode = gameState.currentNodeIndex === 0;
+
   return (
     <div style={{ maxWidth: 760, margin: "0 auto" }} className="animate-fade-in">
+      {/* Scenario intro — first node only */}
+      {isFirstNode && showIntro && (
+        <div style={{
+          background: T.accentDim, border: `1px solid ${T.accent}33`,
+          borderRadius: 14, padding: "20px 24px", marginBottom: 24,
+          animation: "slideUp 0.3s ease",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: T.accent, marginBottom: 8 }}>
+                How This Works
+              </h3>
+              <p style={{ fontSize: 13, lineHeight: 1.7, color: T.textDim, margin: 0 }}>
+                You&apos;ll walk through a series of stages for this scenario. Some ask you to <strong style={{ color: T.text }}>reflect</strong> on the situation in your own words — an AI coach will then push your thinking further. Others present a <strong style={{ color: T.text }}>decision point</strong> where you choose how to respond. There are no perfect answers — just thoughtful ones. Take your time and engage honestly.
+              </p>
+            </div>
+            <button onClick={() => setShowIntro(false)} style={{
+              background: "transparent", border: "none", color: T.textMuted,
+              cursor: "pointer", fontSize: 18, padding: 0, lineHeight: 1, flexShrink: 0,
+            }}>×</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
