@@ -1008,6 +1008,296 @@ function DecisionReplaySection({ choicesMade, scenario, keyBehaviors }: any) {
 }
 
 // ═══════════════════════════════════════════════════════
+// Q12 TRAINING VIEW — Comprehensive Gallup Q12 Resource
+// ═══════════════════════════════════════════════════════
+
+const Q12_GUIDE: Record<number, { tier: string; tierColor: string; tierLabel: string; whyItMatters: string; managerTips: string[]; warning: string }> = {
+  1: {
+    tier: "basic", tierColor: "#86D5F4", tierLabel: "Basic Needs",
+    whyItMatters: "When employees don't know what's expected, they default to guessing — which leads to wasted effort, anxiety, and misalignment. Clear expectations are the foundation everything else is built on.",
+    managerTips: [
+      "Define success criteria for every project before it begins — what 'done' looks like, not just what to do.",
+      "Revisit expectations regularly. What was clear in January may be ambiguous by March.",
+      "Ask your report to reflect your expectations back to you. If their version differs from yours, the gap is yours to close.",
+    ],
+    warning: "If this score is low on your team, nothing else you do will land. Fix this first.",
+  },
+  2: {
+    tier: "basic", tierColor: "#86D5F4", tierLabel: "Basic Needs",
+    whyItMatters: "This isn't just about laptops and software. It's about whether your people feel set up to succeed — or whether they're fighting their tools every day. Resourceful managers remove friction.",
+    managerTips: [
+      "Audit your team's tooling and access quarterly. Ask: 'What slows you down that shouldn't?'",
+      "Advocate upward — if your team needs budget or tools, it's your job to make the case.",
+      "Don't assume silence means satisfaction. People often accept friction because they think nothing will change.",
+    ],
+    warning: "Low scores here signal that employees feel unsupported at the most basic level. It erodes trust fast.",
+  },
+  3: {
+    tier: "basic", tierColor: "#86D5F4", tierLabel: "Basic Needs",
+    whyItMatters: "When people spend most of their day doing things they're bad at or dislike, engagement plummets. Great managers align strengths to work — not just assign tasks.",
+    managerTips: [
+      "Have a direct conversation about strengths: 'What energizes you? What drains you?'",
+      "Redesign roles where possible — even shifting 20% of tasks toward strengths has a measurable impact.",
+      "Notice when someone is in flow versus grinding. Flow is the signal you've matched the work to the person.",
+    ],
+    warning: "Chronically low scores here often mean talented people are in the wrong seat — not the wrong company.",
+  },
+  4: {
+    tier: "basic", tierColor: "#86D5F4", tierLabel: "Basic Needs",
+    whyItMatters: "Recognition isn't a 'nice to have.' Gallup's research shows that employees who don't feel recognized are twice as likely to say they'll quit in the next year. And it has to be frequent — the question specifically asks about the last seven days.",
+    managerTips: [
+      "Build a weekly habit: identify at least one specific thing someone did well and tell them directly.",
+      "Be precise. 'Great job' is noise. 'The way you handled that client escalation on Tuesday showed real judgment' is signal.",
+      "Recognize publicly when appropriate, but don't skip private recognition — some people prefer it.",
+    ],
+    warning: "If you think you recognize people enough, you probably don't. Managers consistently overestimate how much recognition they give.",
+  },
+  5: {
+    tier: "support", tierColor: "#8EE34D", tierLabel: "Management Support",
+    whyItMatters: "People don't leave companies, they leave managers — and this dimension is why. When employees feel their manager genuinely cares about them as a human being (not just a producer), they bring their full selves to work.",
+    managerTips: [
+      "Learn what matters to your people outside work. You don't need to be their therapist — but know if they have a sick parent or a kid's recital.",
+      "Check in on wellbeing, not just deliverables. 'How are you doing?' before 'Where are we on the project?'",
+      "Flex when life happens. The goodwill from accommodating a tough week pays back tenfold.",
+    ],
+    warning: "This is the single strongest predictor of whether someone stays or leaves your team.",
+  },
+  6: {
+    tier: "support", tierColor: "#8EE34D", tierLabel: "Management Support",
+    whyItMatters: "Employees who feel their growth is actively encouraged are more engaged, more productive, and more loyal. A manager who invests in development is signaling: 'I see your future here, and I want to help you get there.'",
+    managerTips: [
+      "Have a growth conversation at least once per quarter — separate from performance reviews.",
+      "Connect people with stretch assignments, mentors, or learning opportunities proactively — don't wait for them to ask.",
+      "Share your own growth journey. Vulnerability about what you're still learning models a growth culture.",
+    ],
+    warning: "High performers especially need this. If they don't feel they're growing, they'll find somewhere they can.",
+  },
+  7: {
+    tier: "teamwork", tierColor: "#FFAA53", tierLabel: "Teamwork",
+    whyItMatters: "When people feel their voice doesn't matter, they stop contributing ideas — and you lose the distributed intelligence of your team. Innovation dies in silence.",
+    managerTips: [
+      "Actively solicit input before decisions are made, not after. 'What am I missing?' is one of the most powerful questions a manager can ask.",
+      "When you can't act on someone's input, explain why. The worst thing is asking for opinions and then ignoring them without explanation.",
+      "Create psychological safety: reward people for speaking up, especially when they disagree with you.",
+    ],
+    warning: "If only your loudest team members feel heard, you're leaving enormous value on the table.",
+  },
+  8: {
+    tier: "teamwork", tierColor: "#FFAA53", tierLabel: "Teamwork",
+    whyItMatters: "People need to feel their work connects to something bigger than a task list. When the mission feels real, mundane work becomes meaningful. When it doesn't, even exciting work feels hollow.",
+    managerTips: [
+      "Regularly connect your team's work to the company's mission and client outcomes. 'Here's why this matters.'",
+      "Share client wins and the real-world impact of your team's contributions — make the abstract concrete.",
+      "Help your reports see their role in the larger strategy. People who understand the 'why' bring more creativity to the 'how.'",
+    ],
+    warning: "Low scores here often indicate a communication gap between leadership vision and day-to-day work.",
+  },
+  9: {
+    tier: "teamwork", tierColor: "#FFAA53", tierLabel: "Teamwork",
+    whyItMatters: "Nothing is more demoralizing than giving your best while others coast. When employees feel surrounded by people who also care about quality, it raises the bar for everyone.",
+    managerTips: [
+      "Set clear quality standards and hold everyone accountable — including top performers.",
+      "Address underperformance directly. Tolerating low quality sends a louder message than any all-hands speech.",
+      "Celebrate quality, not just speed. Recognize work that's done right, not just done fast.",
+    ],
+    warning: "If you have one person dragging down quality and you don't address it, you're telling the whole team that standards are optional.",
+  },
+  10: {
+    tier: "teamwork", tierColor: "#FFAA53", tierLabel: "Teamwork",
+    whyItMatters: "This is Gallup's most debated question — but the research is clear. Deep workplace friendships drive engagement, collaboration, and retention. It's not about forcing friendships; it's about creating the conditions where genuine connection can form.",
+    managerTips: [
+      "Create space for non-work interaction — team lunches, casual Slack channels, offsites with unstructured time.",
+      "Pair people on projects who might not naturally work together. Proximity creates connection.",
+      "Don't dismiss this dimension as 'soft.' Teams with strong interpersonal bonds outperform those without, consistently.",
+    ],
+    warning: "Remote teams are especially at risk here. Be intentional about connection when you can't rely on hallway conversations.",
+  },
+  11: {
+    tier: "growth", tierColor: "#FD6EF8", tierLabel: "Growth",
+    whyItMatters: "If no one has talked to you about your progress in six months, the message is clear: no one is paying attention. Progress conversations signal investment and keep development on track.",
+    managerTips: [
+      "Don't save feedback for formal reviews. Brief, frequent progress conversations are far more impactful.",
+      "Be specific about what's improved and what still needs work. Vague 'you're doing great' is not a progress conversation.",
+      "Ask the employee first: 'How do you think you've grown in the last few months?' Then share your perspective.",
+    ],
+    warning: "If your team's scores are low here, the fix is simple: schedule the conversations. Most managers just forget.",
+  },
+  12: {
+    tier: "growth", tierColor: "#FD6EF8", tierLabel: "Growth",
+    whyItMatters: "Growth is a fundamental human need. When people feel stagnant, they disengage or leave. This question captures whether your organization is delivering on its promise of professional development.",
+    managerTips: [
+      "Make learning a regular part of the rhythm — not a once-a-year training event.",
+      "Support self-directed learning: courses, conferences, side projects, cross-functional exposure.",
+      "Track growth over time. Help people see how far they've come, not just how far they have to go.",
+    ],
+    warning: "Strong performers who don't see growth opportunities will leave within 18 months — count on it.",
+  },
+};
+
+const Q12_TIERS = [
+  { key: "basic", label: "Basic Needs", color: "#86D5F4", ids: [1, 2, 3, 4], description: "Before anything else, employees need clarity, resources, the chance to use their strengths, and regular recognition. These are non-negotiable — without them, nothing higher on the pyramid works." },
+  { key: "support", label: "Management Support", color: "#8EE34D", ids: [5, 6], description: "Once basic needs are met, employees need to feel genuinely cared about as people and encouraged to develop. This is where the manager-employee relationship becomes the engine of engagement." },
+  { key: "teamwork", label: "Teamwork", color: "#FFAA53", ids: [7, 8, 9, 10], description: "Engaged individuals become engaged teams when opinions matter, mission is clear, quality is shared, and real relationships form. This tier transforms groups of individuals into cohesive units." },
+  { key: "growth", label: "Growth", color: "#FD6EF8", ids: [11, 12], description: "At the top of the pyramid, employees need ongoing feedback about their progress and real opportunities to learn. This is what turns a job into a career." },
+];
+
+function Q12TrainingView({ q12 }: { q12: any[] }) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  return (
+    <div>
+      {/* ─── Hero Intro ─── */}
+      <Card style={{ padding: 32, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>The Gallup Q12: A Manager's Complete Guide</h2>
+        <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.8, marginBottom: 16 }}>
+          The Gallup Q12 is the result of decades of research by the Gallup organization into what drives employee engagement. Based on studies of millions of employees across hundreds of thousands of teams, Gallup identified 12 core conditions that consistently predict team performance, retention, profitability, and customer satisfaction.
+        </p>
+        <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.8, marginBottom: 16 }}>
+          These aren't aspirational ideals — they're measurable, actionable conditions that you, as a manager, have direct influence over. Teams in the top quartile of Q12 engagement scores see 23% higher profitability, 18% higher productivity, and 43% lower turnover compared to bottom-quartile teams.
+        </p>
+        <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.8 }}>
+          In the Arena, every scenario is mapped to one or more Q12 dimensions. Understanding these dimensions deeply will help you make better decisions in the game — and more importantly, with your real team.
+        </p>
+      </Card>
+
+      {/* ─── The Pyramid ─── */}
+      <Card style={{ padding: 32, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>The Engagement Hierarchy</h2>
+        <p style={{ color: T.textDim, fontSize: 13, lineHeight: 1.7, marginBottom: 24 }}>
+          The Q12 dimensions aren't random — they form a hierarchy. Like Maslow's pyramid, you have to satisfy lower levels before higher ones can take hold. A team that lacks clear expectations (Q1) won't benefit from growth conversations (Q11). Build from the bottom up.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[...Q12_TIERS].reverse().map((tier, i) => {
+            const widthPct = 40 + (i * 20);
+            return (
+              <div key={tier.key} style={{
+                display: "flex", alignItems: "center", gap: 16,
+              }}>
+                <div style={{
+                  width: `${widthPct}%`, minWidth: 160, padding: "14px 20px", borderRadius: 10,
+                  background: tier.color + "18", border: `1px solid ${tier.color}44`,
+                  textAlign: "center",
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: tier.color }}>{tier.label}</div>
+                  <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>
+                    Q{tier.ids[0]}{tier.ids.length > 1 ? `–Q${tier.ids[tier.ids.length - 1]}` : ""}
+                  </div>
+                </div>
+                <p style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6, flex: 1 }}>{tier.description}</p>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* ─── Detailed Q12 Cards by Tier ─── */}
+      {Q12_TIERS.map(tier => (
+        <div key={tier.key} style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: tier.color, flexShrink: 0 }} />
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: tier.color }}>{tier.label}</h3>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {tier.ids.map(qId => {
+              const dim = q12.find((d: any) => d.id === qId);
+              const guide = Q12_GUIDE[qId];
+              if (!dim || !guide) return null;
+              const isExpanded = expandedId === qId;
+              return (
+                <Card key={qId} style={{ padding: 0, overflow: "hidden", animation: `slideUp 0.4s ease ${(qId - 1) * 0.03}s both` }}>
+                  {/* Header — always visible */}
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : qId)}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 14, padding: "18px 22px",
+                      background: "transparent", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                    }}
+                  >
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 10,
+                      background: tier.color + "18", border: `1px solid ${tier.color}33`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontWeight: 800, fontSize: 15, color: tier.color,
+                      fontFamily: "'Inter Tight', 'JetBrains Mono'", flexShrink: 0,
+                    }}>Q{qId}</div>
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 2 }}>{dim.title}</h4>
+                      <p style={{ fontSize: 13, color: T.textMuted, fontStyle: "italic" }}>"{dim.description}"</p>
+                    </div>
+                    <span style={{ color: T.textMuted, fontSize: 18, transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+                  </button>
+
+                  {/* Expanded content */}
+                  {isExpanded && (
+                    <div style={{ padding: "0 22px 22px", borderTop: `1px solid ${T.border}` }}>
+                      {/* Why It Matters */}
+                      <div style={{ marginTop: 18, marginBottom: 20 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: tier.color, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Why This Matters</div>
+                        <p style={{ fontSize: 14, color: T.textDim, lineHeight: 1.8 }}>{guide.whyItMatters}</p>
+                      </div>
+
+                      {/* Manager Playbook */}
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 }}>Manager Playbook</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {guide.managerTips.map((tip, i) => (
+                            <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                              <div style={{
+                                width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                                background: T.accentDim, display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 11, fontWeight: 800, color: T.accent,
+                              }}>{i + 1}</div>
+                              <p style={{ fontSize: 13, color: T.textDim, lineHeight: 1.7 }}>{tip}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Warning */}
+                      <div style={{
+                        background: T.warning + "10", border: `1px solid ${T.warning}33`, borderRadius: 8,
+                        padding: "12px 16px", display: "flex", gap: 10, alignItems: "flex-start",
+                      }}>
+                        <span style={{ fontSize: 14, flexShrink: 0 }}>⚠</span>
+                        <p style={{ fontSize: 12, color: T.warning, lineHeight: 1.6, fontWeight: 500 }}>{guide.warning}</p>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* ─── How to Use This Framework ─── */}
+      <Card style={{ padding: 32, marginTop: 8 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>Putting It Into Practice</h2>
+        <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.8, marginBottom: 16 }}>
+          The Q12 framework isn't something you "implement" once — it's a lens for everyday management. Here's how to use it:
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+          {[
+            { title: "Diagnose Before You Act", text: "If your team seems disengaged, don't guess where the problem is. Walk through the 12 dimensions mentally — or better yet, ask your team directly. The Q12 gives you a diagnostic framework, not just a survey." },
+            { title: "Build From The Base", text: "Fix basic needs (Q1-Q4) before investing in growth conversations (Q11-Q12). A team that doesn't have clear expectations won't benefit from a learning stipend." },
+            { title: "Focus on 2-3 Dimensions", text: "You can't improve all 12 at once. Identify the 2-3 lowest-scoring areas on your team and make them your priority for the quarter. Small, consistent effort beats grand gestures." },
+            { title: "Connect to the Arena", text: "Every scenario you play here targets specific Q12 dimensions. When you finish a scenario, reflect on how the skills you practiced map to your real team's engagement gaps." },
+          ].map((item, i) => (
+            <div key={i} style={{
+              background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20,
+              animation: `slideUp 0.4s ease ${i * 0.08}s both`,
+            }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: T.text }}>{item.title}</h4>
+              <p style={{ fontSize: 13, color: T.textDim, lineHeight: 1.7 }}>{item.text}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
 // RESOURCES VIEW
 // ═══════════════════════════════════════════════════════
 
@@ -1037,34 +1327,7 @@ function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
           }}>{t.label}</button>
         ))}
       </div>
-      {tab === "q12" && (
-        <div>
-          <Card style={{ padding: 28, marginBottom: 20 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>The Gallup Q12</h2>
-            <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7 }}>
-              The Gallup Q12 is a set of 12 survey statements that measure the most important elements of employee engagement.
-              These dimensions form the foundation of how scenarios are scored in the Arena. Each scenario targets specific Q12
-              dimensions, and your choices directly impact your Q12 engagement score.
-            </p>
-          </Card>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
-            {q12.map((dim: any, i: number) => (
-              <Card key={dim.id} style={{ padding: 20, animation: `slideUp 0.4s ease ${i * 0.05}s both` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: T.accentDim, display: "flex", alignItems: "center",
-                    justifyContent: "center", fontWeight: 800, fontSize: 16,
-                    color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'", flexShrink: 0,
-                  }}>Q{dim.id}</div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700 }}>{dim.title}</h3>
-                </div>
-                <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.6 }}>{dim.description}</p>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+      {tab === "q12" && <Q12TrainingView q12={q12} />}
       {tab === "values" && (
         <div>
           <Card style={{ padding: 28, marginBottom: 20 }}>
