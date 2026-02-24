@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { signOut } from "next-auth/react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -145,6 +145,182 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 }
 
 // ═══════════════════════════════════════════════════════
+// ONBOARDING WALKTHROUGH
+// ═══════════════════════════════════════════════════════
+const ONBOARDING_STEPS = [
+  {
+    target: null, // centered card
+    title: "Welcome to Level Up!",
+    body: "Let's take a quick tour of the Manager Arena — your training ground for real leadership challenges.",
+    icon: "🏟️",
+  },
+  {
+    target: "[data-onboarding='scenarios']",
+    title: "Scenario Cards",
+    body: "Each card is a real management challenge mapped to a Q12 engagement dimension and core value. Pick one to begin — there are no right answers, just better ones.",
+    icon: "🎯",
+    position: "below" as const,
+  },
+  {
+    target: "[data-onboarding='stats']",
+    title: "Your Progress",
+    body: "Track your total score, scenarios completed, and average performance. These update as you play through scenarios.",
+    icon: "📊",
+    position: "below" as const,
+  },
+  {
+    target: "[data-onboarding='nav']",
+    title: "Navigation",
+    body: "Resources has deep dives on Q12 dimensions and core values. Profile shows your strengths. Board is the leaderboard.",
+    icon: "🧭",
+    position: "below" as const,
+  },
+  {
+    target: null,
+    title: "AI Coaching",
+    body: "During scenarios, an AI coach will challenge your thinking with honest, direct feedback. Expect to be pushed — not flattered.",
+    icon: "🤖",
+  },
+  {
+    target: null,
+    title: "You're Ready",
+    body: "Enter the arena and dare greatly. Pick a scenario to start sharpening your leadership skills.",
+    icon: "⚡",
+    cta: true,
+  },
+];
+
+function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const [spotlight, setSpotlight] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+
+  const currentStep = ONBOARDING_STEPS[step];
+
+  // Calculate spotlight position when step changes
+  useEffect(() => {
+    if (!currentStep.target) {
+      setSpotlight(null);
+      return;
+    }
+    const el = document.querySelector(currentStep.target);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const pad = 12;
+      setSpotlight({
+        top: rect.top - pad + window.scrollY,
+        left: rect.left - pad,
+        width: rect.width + pad * 2,
+        height: rect.height + pad * 2,
+      });
+      // Scroll into view if needed
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      setSpotlight(null);
+    }
+  }, [step, currentStep.target]);
+
+  const finish = () => {
+    try { localStorage.setItem("levelup_onboarding_done", "true"); } catch {}
+    onClose();
+  };
+
+  const next = () => step < ONBOARDING_STEPS.length - 1 ? setStep(step + 1) : finish();
+  const back = () => step > 0 && setStep(step - 1);
+
+  // Tooltip positioning
+  const getTooltipStyle = (): React.CSSProperties => {
+    if (!spotlight || !currentStep.target) {
+      // Centered card
+      return {
+        position: "fixed", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+      };
+    }
+    const pos = (currentStep as any).position || "below";
+    if (pos === "below") {
+      return {
+        position: "absolute",
+        top: spotlight.top + spotlight.height + 16,
+        left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 400)),
+      };
+    }
+    return {
+      position: "absolute",
+      top: Math.max(16, spotlight.top - 200),
+      left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 400)),
+    };
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 2000,
+      background: spotlight ? "transparent" : "rgba(0,0,0,0.85)",
+    }}>
+      {/* Dark overlay with spotlight cutout */}
+      {spotlight && (
+        <div style={{
+          position: "absolute", top: spotlight.top, left: spotlight.left,
+          width: spotlight.width, height: spotlight.height,
+          borderRadius: 16, zIndex: 2001,
+          boxShadow: "0 0 0 9999px rgba(0,0,0,0.85)",
+          border: `2px solid ${T.accent}44`,
+          pointerEvents: "none",
+        }} />
+      )}
+
+      {/* Tooltip card */}
+      <div style={{
+        ...getTooltipStyle(),
+        zIndex: 2002, maxWidth: 400, width: "calc(100% - 32px)",
+        background: T.surface, border: `1px solid ${T.border}`,
+        borderRadius: 16, padding: 28,
+        animation: "slideUp 0.3s ease",
+      }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>{currentStep.icon}</div>
+        <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: T.text }}>
+          {step === 0 ? `Welcome, ${userName?.split(" ")[0] || "Manager"}!` : currentStep.title}
+        </h3>
+        <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
+          {currentStep.body}
+        </p>
+
+        {/* Step dots */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 20, justifyContent: "center" }}>
+          {ONBOARDING_STEPS.map((_, i) => (
+            <div key={i} style={{
+              width: i === step ? 24 : 8, height: 8, borderRadius: 4,
+              background: i === step ? T.accent : T.border,
+              transition: "all 0.3s ease",
+            }} />
+          ))}
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
+          <div>
+            {step > 0 && (
+              <Btn onClick={back} variant="ghost" style={{ padding: "10px 16px", fontSize: 13 }}>
+                ← Back
+              </Btn>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {!currentStep.cta && (
+              <Btn onClick={finish} variant="ghost" style={{ padding: "10px 16px", fontSize: 13, color: T.textMuted }}>
+                Skip
+              </Btn>
+            )}
+            <Btn onClick={currentStep.cta ? finish : next} style={{ padding: "10px 20px", fontSize: 13 }}>
+              {currentStep.cta ? "Let's Go! →" : "Next →"}
+            </Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
 // MAIN GAME SHELL
 // ═══════════════════════════════════════════════════════
 export default function GameShell({ session, scenarios, referenceData, userProfile, onDataRefresh }: {
@@ -161,7 +337,17 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [pendingResume, setPendingResume] = useState<any>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   let toastIdRef = 0;
+
+  // Auto-trigger onboarding on first visit
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("levelup_onboarding_done")) {
+        setShowOnboarding(true);
+      }
+    } catch {}
+  }, []);
 
   const showToast = useCallback((message: string, type: ToastType = "error") => {
     const id = Date.now() + Math.random();
@@ -318,6 +504,9 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
   return (
     <div style={{ minHeight: "100vh", background: T.bg }}>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {showOnboarding && view === "home" && (
+        <OnboardingOverlay userName={user.name || ""} onClose={() => setShowOnboarding(false)} />
+      )}
       {/* Responsive styles */}
       <style>{`
         @media (max-width: 768px) {
@@ -349,7 +538,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
           </div>
         </div>
 
-        <div className="game-nav-links" style={{ display: "flex", gap: 4 }}>
+        <div className="game-nav-links" data-onboarding="nav" style={{ display: "flex", gap: 4 }}>
           {navItems.map(item => (
             <button key={item.key} onClick={() => nav(item.key)} style={{
               background: view === item.key ? T.accentDim : "transparent",
@@ -365,6 +554,10 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
             background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8,
             padding: "6px 10px", cursor: "pointer", color: T.textDim, fontFamily: "inherit", fontSize: 12,
           }}>🐛</button>
+          <button onClick={() => { nav("home"); setTimeout(() => setShowOnboarding(true), 100); }} title="Tutorial" style={{
+            background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8,
+            padding: "6px 10px", cursor: "pointer", color: T.textDim, fontFamily: "inherit", fontSize: 12,
+          }}>?</button>
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
             background: T.surfaceHover, borderRadius: 8, padding: "6px 12px",
@@ -488,14 +681,14 @@ function HomeView({ scenarios, stats, onStart }: any) {
         It&apos;s time for you to enter the arena and dare greatly. Choose a scenario to sharpen your leadership skills. Each one is a real management challenge — no right answers, just better ones.
       </p>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 40, flexWrap: "wrap" }}>
+      <div data-onboarding="stats" style={{ display: "flex", gap: 12, marginBottom: 40, flexWrap: "wrap" }}>
         <StatBox label="Total Score" value={stats.totalScore || 0} />
         <StatBox label="Completed" value={`${stats.scenariosCompleted || 0}/${scenarios.length}`} />
         <StatBox label="Avg Score" value={stats.avgScore || 0} />
       </div>
 
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Scenario Arena</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
+      <div data-onboarding="scenarios" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
         {scenarios.map((s: any, i: number) => (
           <Card key={s.id} onClick={() => onStart(s)} style={{
             animation: `slideUp 0.5s ease ${i * 0.1}s both`, position: "relative",
