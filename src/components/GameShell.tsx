@@ -208,6 +208,7 @@ const ONBOARDING_STEPS = [
 function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: () => void }) {
   const [step, setStep] = useState(0);
   const currentStep = ONBOARDING_STEPS[step];
+  const isNavStep = !!(currentStep.target && currentStep.target.includes("nav-") || currentStep.target?.includes("bug-btn"));
 
   // Highlight target element with a glowing outline, scroll it into view
   useEffect(() => {
@@ -216,11 +217,24 @@ function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: (
       el.classList.remove("onboarding-highlight");
     });
 
+    // If targeting a nav element, boost the nav z-index so it shows above the overlay
+    const navEl = document.querySelector(".game-nav") as HTMLElement;
+    if (navEl) {
+      if (isNavStep) {
+        navEl.style.zIndex = "2001";
+      } else {
+        navEl.style.zIndex = "100";
+      }
+    }
+
     if (currentStep.target) {
       const el = document.querySelector(currentStep.target);
       if (el) {
         el.classList.add("onboarding-highlight");
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Only scroll for non-nav elements (nav is always visible at top)
+        if (!isNavStep) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
       }
     } else {
       // Scroll to top for center-card steps
@@ -231,22 +245,34 @@ function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: (
       document.querySelectorAll(".onboarding-highlight").forEach(el => {
         el.classList.remove("onboarding-highlight");
       });
+      if (navEl) navEl.style.zIndex = "100";
     };
-  }, [step, currentStep.target]);
+  }, [step, currentStep.target, isNavStep]);
 
   const finish = () => {
     try { localStorage.setItem("levelup_onboarding_done", "true"); } catch {}
     document.querySelectorAll(".onboarding-highlight").forEach(el => {
       el.classList.remove("onboarding-highlight");
     });
+    const navEl = document.querySelector(".game-nav") as HTMLElement;
+    if (navEl) navEl.style.zIndex = "100";
     onClose();
   };
 
   const next = () => step < ONBOARDING_STEPS.length - 1 ? setStep(step + 1) : finish();
   const back = () => step > 0 && setStep(step - 1);
 
+  // Position tooltip at bottom when highlighting an element, center when no target
+  const hasTarget = !!currentStep.target;
+
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.75)",
+      display: "flex",
+      alignItems: hasTarget ? "flex-end" : "center",
+      justifyContent: "center",
+      paddingBottom: hasTarget ? 32 : 0,
+    }}>
       <div onClick={(e: any) => e.stopPropagation()} style={{
         maxWidth: 420, width: "calc(100% - 32px)", background: T.surface,
         border: `1px solid ${T.border}`, borderRadius: 16, padding: 32,
