@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { signOut } from "next-auth/react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
@@ -149,31 +149,46 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 // ═══════════════════════════════════════════════════════
 const ONBOARDING_STEPS = [
   {
-    target: null, // centered card
+    target: null,
     title: "Welcome to Level Up!",
     body: "Let's take a quick tour of the Manager Arena — your training ground for real leadership challenges.",
     icon: "🏟️",
   },
   {
-    target: "[data-onboarding='scenarios']",
+    target: "[data-onboarding='first-scenario']",
     title: "Scenario Cards",
-    body: "Each card is a real management challenge mapped to a Q12 engagement dimension and core value. Pick one to begin — there are no right answers, just better ones.",
+    body: "Each card is a real management challenge. You'll see the core value and Q12 dimension it tests, the difficulty level, and how long it takes. Click any card to start playing.",
     icon: "🎯",
-    position: "below" as const,
   },
   {
     target: "[data-onboarding='stats']",
     title: "Your Progress",
-    body: "Track your total score, scenarios completed, and average performance. These update as you play through scenarios.",
+    body: "Track your total score, how many scenarios you've completed, and your average performance. These update each time you finish a scenario.",
     icon: "📊",
-    position: "below" as const,
   },
   {
-    target: "[data-onboarding='nav']",
-    title: "Navigation",
-    body: "Resources has deep dives on Q12 dimensions and core values. Profile shows your strengths. Board is the leaderboard.",
-    icon: "🧭",
-    position: "below" as const,
+    target: "[data-onboarding='nav-resources']",
+    title: "Resources",
+    body: "Deep dives on all 12 Gallup Q12 engagement dimensions and Level's core values. Great reference material before or after a scenario.",
+    icon: "📚",
+  },
+  {
+    target: "[data-onboarding='nav-profile']",
+    title: "Your Profile",
+    body: "See your strengths across Q12 dimensions and core values. A radar chart shows where you excel and where you can grow.",
+    icon: "👤",
+  },
+  {
+    target: "[data-onboarding='nav-board']",
+    title: "Leaderboard",
+    body: "See how you stack up against your peers. Sort by total score or scenarios completed.",
+    icon: "🏆",
+  },
+  {
+    target: "[data-onboarding='bug-btn']",
+    title: "Report a Bug",
+    body: "Found something broken? Click the bug icon anytime to submit a report. We'll fix it.",
+    icon: "🐛",
   },
   {
     target: null,
@@ -192,168 +207,93 @@ const ONBOARDING_STEPS = [
 
 function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: () => void }) {
   const [step, setStep] = useState(0);
-  const [spotlight, setSpotlight] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
-  const [tooltipReady, setTooltipReady] = useState(false);
-
   const currentStep = ONBOARDING_STEPS[step];
 
-  // Calculate spotlight position when step changes
+  // Highlight target element with a glowing outline, scroll it into view
   useEffect(() => {
-    setTooltipReady(false);
-    if (!currentStep.target) {
-      setSpotlight(null);
-      setTooltipReady(true);
-      return;
-    }
-    // Small delay to let scroll settle
-    const timer = setTimeout(() => {
-      const el = document.querySelector(currentStep.target!);
+    // Clean up any previous highlight
+    document.querySelectorAll(".onboarding-highlight").forEach(el => {
+      el.classList.remove("onboarding-highlight");
+    });
+
+    if (currentStep.target) {
+      const el = document.querySelector(currentStep.target);
       if (el) {
-        // Scroll element into view first, then measure
+        el.classList.add("onboarding-highlight");
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        // Wait for scroll to settle before measuring
-        setTimeout(() => {
-          const rect = el.getBoundingClientRect();
-          const pad = 12;
-          setSpotlight({
-            top: rect.top - pad,
-            left: rect.left - pad,
-            width: rect.width + pad * 2,
-            height: rect.height + pad * 2,
-          });
-          setTooltipReady(true);
-        }, 400);
-      } else {
-        setSpotlight(null);
-        setTooltipReady(true);
       }
-    }, 50);
-    return () => clearTimeout(timer);
+    } else {
+      // Scroll to top for center-card steps
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    return () => {
+      document.querySelectorAll(".onboarding-highlight").forEach(el => {
+        el.classList.remove("onboarding-highlight");
+      });
+    };
   }, [step, currentStep.target]);
 
   const finish = () => {
     try { localStorage.setItem("levelup_onboarding_done", "true"); } catch {}
+    document.querySelectorAll(".onboarding-highlight").forEach(el => {
+      el.classList.remove("onboarding-highlight");
+    });
     onClose();
   };
 
   const next = () => step < ONBOARDING_STEPS.length - 1 ? setStep(step + 1) : finish();
   const back = () => step > 0 && setStep(step - 1);
 
-  // All positions are viewport-relative (fixed), so tooltip goes below or above spotlight
-  const getTooltipStyle = (): React.CSSProperties => {
-    if (!spotlight || !currentStep.target) {
-      return {
-        position: "fixed", top: "50%", left: "50%",
-        transform: "translate(-50%, -50%)",
-      };
-    }
-    // Check if there's room below the spotlight
-    const spaceBelow = window.innerHeight - (spotlight.top + spotlight.height);
-    const tooltipHeight = 280; // approximate
-    const placeBelow = spaceBelow > tooltipHeight + 20;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div onClick={(e: any) => e.stopPropagation()} style={{
+        maxWidth: 420, width: "calc(100% - 32px)", background: T.surface,
+        border: `1px solid ${T.border}`, borderRadius: 16, padding: 32,
+        animation: "slideUp 0.3s ease",
+      }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>{currentStep.icon}</div>
+        <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: T.text }}>
+          {step === 0 ? `Welcome, ${userName?.split(" ")[0] || "Manager"}!` : currentStep.title}
+        </h3>
+        <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7, marginBottom: 28 }}>
+          {currentStep.body}
+        </p>
 
-    if (placeBelow) {
-      return {
-        position: "fixed",
-        top: spotlight.top + spotlight.height + 16,
-        left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 416)),
-      };
-    }
-    // Place above
-    return {
-      position: "fixed",
-      bottom: window.innerHeight - spotlight.top + 16,
-      left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 416)),
-    };
-  };
-
-  const tooltipCard = (
-    <div style={{
-      ...getTooltipStyle(),
-      zIndex: 2002, maxWidth: 400, width: "calc(100vw - 32px)",
-      background: T.surface, border: `1px solid ${T.border}`,
-      borderRadius: 16, padding: 28,
-      animation: "slideUp 0.3s ease",
-      opacity: tooltipReady ? 1 : 0,
-      transition: "opacity 0.2s ease",
-    }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>{currentStep.icon}</div>
-      <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: T.text }}>
-        {step === 0 ? `Welcome, ${userName?.split(" ")[0] || "Manager"}!` : currentStep.title}
-      </h3>
-      <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
-        {currentStep.body}
-      </p>
-
-      {/* Step dots */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 20, justifyContent: "center" }}>
-        {ONBOARDING_STEPS.map((_, i) => (
-          <div key={i} style={{
-            width: i === step ? 24 : 8, height: 8, borderRadius: 4,
-            background: i === step ? T.accent : T.border,
-            transition: "all 0.3s ease",
-          }} />
-        ))}
-      </div>
-
-      {/* Buttons */}
-      <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
-        <div>
-          {step > 0 && (
-            <Btn onClick={back} variant="ghost" style={{ padding: "10px 16px", fontSize: 13 }}>
-              ← Back
-            </Btn>
-          )}
+        {/* Step indicator */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 20, justifyContent: "center" }}>
+          {ONBOARDING_STEPS.map((_, i) => (
+            <div key={i} style={{
+              width: i === step ? 24 : 8, height: 8, borderRadius: 4,
+              background: i === step ? T.accent : T.border,
+              transition: "all 0.3s ease",
+            }} />
+          ))}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {!currentStep.cta && (
-            <Btn onClick={finish} variant="ghost" style={{ padding: "10px 16px", fontSize: 13, color: T.textMuted }}>
-              Skip
+
+        {/* Step count */}
+        <div style={{ textAlign: "center", fontSize: 11, color: T.textMuted, marginBottom: 16 }}>
+          {step + 1} of {ONBOARDING_STEPS.length}
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
+          <div>
+            {step > 0 && (
+              <Btn onClick={back} variant="ghost" style={{ padding: "10px 16px", fontSize: 13 }}>← Back</Btn>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {!(currentStep as any).cta && (
+              <Btn onClick={finish} variant="ghost" style={{ padding: "10px 16px", fontSize: 13, color: T.textMuted }}>Skip</Btn>
+            )}
+            <Btn onClick={(currentStep as any).cta ? finish : next} style={{ padding: "10px 20px", fontSize: 13 }}>
+              {(currentStep as any).cta ? "Let's Go! →" : "Next →"}
             </Btn>
-          )}
-          <Btn onClick={currentStep.cta ? finish : next} style={{ padding: "10px 20px", fontSize: 13 }}>
-            {currentStep.cta ? "Let's Go! →" : "Next →"}
-          </Btn>
+          </div>
         </div>
       </div>
     </div>
-  );
-
-  // Build a clip-path that cuts out the spotlight area from the overlay
-  const clipPath = spotlight
-    ? `polygon(
-        0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%,
-        ${spotlight.left}px ${spotlight.top}px,
-        ${spotlight.left}px ${spotlight.top + spotlight.height}px,
-        ${spotlight.left + spotlight.width}px ${spotlight.top + spotlight.height}px,
-        ${spotlight.left + spotlight.width}px ${spotlight.top}px,
-        ${spotlight.left}px ${spotlight.top}px
-      )`
-    : undefined;
-
-  return (
-    <>
-      {/* Full-screen dark overlay with optional spotlight cutout */}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 2000,
-        background: "rgba(0,0,0,0.85)",
-        clipPath,
-      }} />
-
-      {/* Spotlight border highlight */}
-      {spotlight && (
-        <div style={{
-          position: "fixed", top: spotlight.top, left: spotlight.left,
-          width: spotlight.width, height: spotlight.height,
-          borderRadius: 16, zIndex: 2001,
-          border: `2px solid ${T.accent}66`,
-          pointerEvents: "none",
-        }} />
-      )}
-
-      {/* Tooltip card — above everything */}
-      {tooltipCard}
-    </>
   );
 }
 
@@ -531,11 +471,11 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
   // NAV BAR
   // ═══════════════════════════════════════
   const navItems = [
-    { key: "home", label: "Arena" },
-    { key: "resources", label: "Resources" },
-    { key: "profile", label: "Profile" },
-    { key: "leaderboard", label: "Board" },
-    ...(user.role === "ADMIN" ? [{ key: "admin", label: "Admin" }] : []),
+    { key: "home", label: "Arena", onboarding: null },
+    { key: "resources", label: "Resources", onboarding: "nav-resources" },
+    { key: "profile", label: "Profile", onboarding: "nav-profile" },
+    { key: "leaderboard", label: "Board", onboarding: "nav-board" },
+    ...(user.role === "ADMIN" ? [{ key: "admin", label: "Admin", onboarding: null }] : []),
   ];
 
   return (
@@ -554,6 +494,16 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
           .game-nav-user .user-role-badge { display: none; }
           .game-main { padding: 16px 12px 80px !important; }
           .profile-header-stats { gap: 12px !important; }
+        }
+        @keyframes onboardingPulse {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(134,213,244,0.5), 0 0 20px rgba(134,213,244,0.2); }
+          50% { box-shadow: 0 0 0 6px rgba(134,213,244,0.3), 0 0 30px rgba(134,213,244,0.3); }
+        }
+        .onboarding-highlight {
+          position: relative;
+          z-index: 2001 !important;
+          border-radius: 16px;
+          animation: onboardingPulse 1.5s ease-in-out infinite !important;
         }
       `}</style>
       {/* NAV */}
@@ -577,7 +527,9 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
 
         <div className="game-nav-links" data-onboarding="nav" style={{ display: "flex", gap: 4 }}>
           {navItems.map(item => (
-            <button key={item.key} onClick={() => nav(item.key)} style={{
+            <button key={item.key} onClick={() => nav(item.key)}
+              {...(item.onboarding ? { "data-onboarding": item.onboarding } : {})}
+              style={{
               background: view === item.key ? T.accentDim : "transparent",
               color: view === item.key ? T.accent : T.textDim,
               border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer",
@@ -587,7 +539,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
         </div>
 
         <div className="game-nav-user" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => setShowBugModal(true)} style={{
+          <button data-onboarding="bug-btn" onClick={() => setShowBugModal(true)} style={{
             background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8,
             padding: "6px 10px", cursor: "pointer", color: T.textDim, fontFamily: "inherit", fontSize: 12,
           }}>🐛</button>
@@ -725,9 +677,10 @@ function HomeView({ scenarios, stats, onStart }: any) {
       </div>
 
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Scenario Arena</h2>
-      <div data-onboarding="scenarios" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
         {scenarios.map((s: any, i: number) => (
-          <Card key={s.id} onClick={() => onStart(s)} style={{
+          <div key={s.id} {...(i === 0 ? { "data-onboarding": "first-scenario" } : {})}>
+          <Card onClick={() => onStart(s)} style={{
             animation: `slideUp 0.5s ease ${i * 0.1}s both`, position: "relative",
           }}>
             {s.userCompleted && (
@@ -759,6 +712,7 @@ function HomeView({ scenarios, stats, onStart }: any) {
               </div>
             </div>
           </Card>
+          </div>
         ))}
       </div>
     </div>
