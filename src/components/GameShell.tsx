@@ -355,7 +355,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
           <LeaderboardView data={leaderboard} currentUserId={user.id} />
         )}
         {view === "admin" && user.role === "ADMIN" && adminData && (
-          <AdminView data={adminData} q12={q12} coreValues={coreValues} />
+          <AdminView data={adminData} q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} />
         )}
       </main>
 
@@ -1250,7 +1250,7 @@ function LeaderboardView({ data, currentUserId }: any) {
 // ═══════════════════════════════════════════════════════
 // ADMIN VIEW
 // ═══════════════════════════════════════════════════════
-function AdminView({ data, q12, coreValues }: any) {
+function AdminView({ data, q12, coreValues, keyBehaviors }: any) {
   const [tab, setTab] = useState("usage");
   const usage = data.usage || {};
 
@@ -1343,35 +1343,513 @@ function AdminView({ data, q12, coreValues }: any) {
         </Card>
       )}
 
-      {tab === "scenarios" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-          {(data.scenarioHealth || []).map((s: any) => (
-            <Card key={s.id} style={{ padding: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                <h4 style={{ fontSize: 15, fontWeight: 700 }}>{s.title}</h4>
-                <Badge color={s.isActive ? T.success : T.danger}>{s.isActive ? "Active" : "Inactive"}</Badge>
+      {tab === "scenarios" && <AdminScenariosTab scenarioHealth={data.scenarioHealth || []} q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} />}
+
+      {tab === "bugs" && <AdminBugsTab />}
+    </div>
+  );
+}
+
+function AdminScenariosTab({ scenarioHealth, q12, coreValues, keyBehaviors }: any) {
+  const [scenarios, setScenarios] = useState<any[]>(scenarioHealth);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [nodes, setNodes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  // Edit state
+  const [editMeta, setEditMeta] = useState<any>({});
+  const [editNodes, setEditNodes] = useState<Record<string, any>>({});
+  const [editChoices, setEditChoices] = useState<Record<string, any>>({});
+
+  // New entity forms
+  const [newNode, setNewNode] = useState<any>(null);
+  const [newChoiceForNode, setNewChoiceForNode] = useState<string | null>(null);
+  const [newChoiceData, setNewChoiceData] = useState<any>({});
+  const [newScenario, setNewScenario] = useState<any>({ title: "", description: "", difficulty: "Medium", estimatedTimeMinutes: 10, primaryQ12Id: q12[0]?.id || 1, secondaryQ12Id: null, coreValueId: coreValues[0]?.id || "" });
+
+  const inputStyle: any = { background: T.bg, color: T.text, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%" };
+  const selectStyle: any = { ...inputStyle, width: "auto" };
+  const textareaStyle: any = { ...inputStyle, minHeight: 80, resize: "vertical" as const, lineHeight: 1.6 };
+  const labelStyle: any = { fontSize: 11, fontWeight: 700, color: T.textMuted, marginBottom: 4, display: "block" };
+
+  // Load full scenario nodes when expanding
+  const loadNodes = useCallback(async (scenarioId: string) => {
+    setLoading(true);
+    try {
+      const data = await api.admin.getNodes(scenarioId);
+      setNodes(data);
+      // Initialize edit state from loaded data
+      const scenario = scenarios.find((s: any) => s.id === scenarioId);
+      if (scenario) {
+        setEditMeta({ title: scenario.title, description: scenario.description || "", difficulty: scenario.difficulty, isActive: scenario.isActive });
+      }
+    } catch (err) { console.error("Failed to load nodes:", err); }
+    setLoading(false);
+  }, [scenarios]);
+
+  const toggleExpand = (id: string) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+      setNodes([]);
+      setEditNodes({});
+      setEditChoices({});
+      setNewNode(null);
+      setNewChoiceForNode(null);
+    } else {
+      setExpandedId(id);
+      loadNodes(id);
+    }
+  };
+
+  // Reload scenario list after changes
+  const reloadList = async () => {
+    try {
+      const res = await api.admin.analytics();
+      setScenarios(res.scenarioHealth || []);
+    } catch {}
+  };
+
+  // ─── Save scenario metadata ───
+  const saveMeta = async (id: string) => {
+    setSaving("meta");
+    try {
+      await api.scenarios.update(id, editMeta);
+      await reloadList();
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  // ─── Toggle active ───
+  const toggleActive = async (id: string, current: boolean) => {
+    setSaving("active-" + id);
+    try {
+      await api.scenarios.update(id, { isActive: !current });
+      await reloadList();
+      setEditMeta((prev: any) => ({ ...prev, isActive: !current }));
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  // ─── Node CRUD ───
+  const saveNode = async (scenarioId: string, nodeId: string) => {
+    setSaving("node-" + nodeId);
+    try {
+      await api.admin.updateNode(scenarioId, nodeId, editNodes[nodeId]);
+      await loadNodes(scenarioId);
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  const deleteNode = async (scenarioId: string, nodeId: string) => {
+    if (!confirm("Delete this node and all its choices?")) return;
+    setSaving("node-" + nodeId);
+    try {
+      await api.admin.deleteNode(scenarioId, nodeId);
+      await loadNodes(scenarioId);
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  const addNode = async (scenarioId: string) => {
+    if (!newNode?.contentText?.trim()) return;
+    setSaving("new-node");
+    try {
+      await api.admin.addNode(scenarioId, { ...newNode, orderIndex: nodes.length });
+      setNewNode(null);
+      await loadNodes(scenarioId);
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  // ─── Choice CRUD ───
+  const saveChoice = async (scenarioId: string, nodeId: string, choiceId: string) => {
+    setSaving("choice-" + choiceId);
+    try {
+      await api.admin.updateChoice(scenarioId, nodeId, choiceId, editChoices[choiceId]);
+      await loadNodes(scenarioId);
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  const deleteChoice = async (scenarioId: string, nodeId: string, choiceId: string) => {
+    if (!confirm("Delete this choice?")) return;
+    setSaving("choice-" + choiceId);
+    try {
+      await api.admin.deleteChoice(scenarioId, nodeId, choiceId);
+      await loadNodes(scenarioId);
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  const addChoice = async (scenarioId: string, nodeId: string) => {
+    if (!newChoiceData.choiceText?.trim() || !newChoiceData.explanationText?.trim()) return;
+    setSaving("new-choice");
+    try {
+      await api.admin.addChoice(scenarioId, nodeId, newChoiceData);
+      setNewChoiceForNode(null);
+      setNewChoiceData({});
+      await loadNodes(scenarioId);
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  // ─── Create scenario ───
+  const createScenario = async () => {
+    if (!newScenario.title?.trim() || !newScenario.description?.trim()) return;
+    setSaving("new-scenario");
+    try {
+      await api.scenarios.create(newScenario);
+      setCreating(false);
+      setNewScenario({ title: "", description: "", difficulty: "Medium", estimatedTimeMinutes: 10, primaryQ12Id: q12[0]?.id || 1, secondaryQ12Id: null, coreValueId: coreValues[0]?.id || "" });
+      await reloadList();
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  // ─── Delete scenario ───
+  const deleteScenario = async (id: string) => {
+    if (!confirm("Permanently delete this scenario and ALL its data?")) return;
+    setSaving("delete-" + id);
+    try {
+      await api.scenarios.delete(id);
+      setExpandedId(null);
+      await reloadList();
+    } catch (err) { console.error(err); }
+    setSaving(null);
+  };
+
+  const nodeTypeBadgeColor: Record<string, string> = {
+    REFLECTION: T.info, DECISION: T.warning, OUTCOME: T.success,
+  };
+
+  return (
+    <div>
+      {/* Create New Scenario */}
+      <div style={{ marginBottom: 20 }}>
+        {!creating ? (
+          <Btn onClick={() => setCreating(true)} style={{ fontSize: 13 }}>+ New Scenario</Btn>
+        ) : (
+          <Card style={{ padding: 20 }}>
+            <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Create New Scenario</h4>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Title</label>
+                <input value={newScenario.title} onChange={(e: any) => setNewScenario((p: any) => ({ ...p, title: e.target.value }))} style={inputStyle} placeholder="Scenario title..." />
               </div>
-              <div style={{ display: "flex", gap: 16, fontSize: 13, color: T.textMuted, marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <div>
+                  <label style={labelStyle}>Difficulty</label>
+                  <select value={newScenario.difficulty} onChange={(e: any) => setNewScenario((p: any) => ({ ...p, difficulty: e.target.value }))} style={inputStyle}>
+                    <option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Est. Minutes</label>
+                  <input type="number" value={newScenario.estimatedTimeMinutes} onChange={(e: any) => setNewScenario((p: any) => ({ ...p, estimatedTimeMinutes: parseInt(e.target.value) || 10 }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Core Value</label>
+                  <select value={newScenario.coreValueId} onChange={(e: any) => setNewScenario((p: any) => ({ ...p, coreValueId: e.target.value }))} style={inputStyle}>
+                    {coreValues.map((cv: any) => <option key={cv.id} value={cv.id}>{cv.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={labelStyle}>Primary Q12</label>
+                <select value={newScenario.primaryQ12Id} onChange={(e: any) => setNewScenario((p: any) => ({ ...p, primaryQ12Id: parseInt(e.target.value) }))} style={inputStyle}>
+                  {q12.map((q: any) => <option key={q.id} value={q.id}>Q{q.id}: {q.title}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Secondary Q12 (optional)</label>
+                <select value={newScenario.secondaryQ12Id || ""} onChange={(e: any) => setNewScenario((p: any) => ({ ...p, secondaryQ12Id: e.target.value ? parseInt(e.target.value) : null }))} style={inputStyle}>
+                  <option value="">None</option>
+                  {q12.map((q: any) => <option key={q.id} value={q.id}>Q{q.id}: {q.title}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Description</label>
+              <textarea value={newScenario.description} onChange={(e: any) => setNewScenario((p: any) => ({ ...p, description: e.target.value }))} style={textareaStyle} placeholder="Describe the scenario..." />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn onClick={createScenario} disabled={saving === "new-scenario" || !newScenario.title.trim()}>
+                {saving === "new-scenario" ? "Creating..." : "Create Scenario"}
+              </Btn>
+              <Btn onClick={() => setCreating(false)} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim }}>Cancel</Btn>
+            </div>
+          </Card>
+        )}
+      </div>
+
+      {/* Scenario List */}
+      {scenarios.map((s: any) => {
+        const isExpanded = expandedId === s.id;
+        return (
+          <Card key={s.id} style={{ marginBottom: 12, padding: 0 }}>
+            {/* Collapsed Header */}
+            <div onClick={() => toggleExpand(s.id)} style={{ padding: 20, cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <h4 style={{ fontSize: 15, fontWeight: 700 }}>{s.title}</h4>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <Badge color={s.isActive ? T.success : T.danger}>{s.isActive ? "Active" : "Inactive"}</Badge>
+                  <span style={{ fontSize: 12, color: T.textMuted }}>{isExpanded ? "▲" : "▼"}</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 16, fontSize: 13, color: T.textMuted, flexWrap: "wrap" }}>
                 <span>{s.difficulty}</span>
                 <span>{s.totalCompletions} completions</span>
                 <span>{s.completionRate}% rate</span>
+                {s.avgScore > 0 && <span>Avg: {s.avgScore}</span>}
+                {s.avgFeedbackRating && <span>Rating: {s.avgFeedbackRating}/5</span>}
               </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <div style={{ background: T.accent + "11", borderRadius: 8, padding: "6px 14px", fontSize: 13 }}>
-                  Avg: <strong style={{ color: T.accent }}>{s.avgScore}</strong>
-                </div>
-                {s.avgFeedbackRating && (
-                  <div style={{ background: T.warning + "11", borderRadius: 8, padding: "6px 14px", fontSize: 13 }}>
-                    Rating: <strong style={{ color: T.warning }}>{s.avgFeedbackRating}/5</strong>
-                  </div>
+            </div>
+
+            {/* Expanded Editor */}
+            {isExpanded && (
+              <div onClick={(e: any) => e.stopPropagation()} style={{ padding: "0 20px 20px", borderTop: `1px solid ${T.border}` }}>
+                {loading ? (
+                  <p style={{ color: T.textMuted, fontSize: 13, padding: "20px 0" }}>Loading scenario data...</p>
+                ) : (
+                  <>
+                    {/* ─── Metadata Editor ─── */}
+                    <div style={{ paddingTop: 16, marginBottom: 24 }}>
+                      <h5 style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 12 }}>Scenario Metadata</h5>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                        <div>
+                          <label style={labelStyle}>Title</label>
+                          <input value={editMeta.title || ""} onChange={(e: any) => setEditMeta((p: any) => ({ ...p, title: e.target.value }))} style={inputStyle} />
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={labelStyle}>Difficulty</label>
+                            <select value={editMeta.difficulty || "Medium"} onChange={(e: any) => setEditMeta((p: any) => ({ ...p, difficulty: e.target.value }))} style={inputStyle}>
+                              <option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Active</label>
+                            <Btn onClick={() => toggleActive(s.id, editMeta.isActive)} disabled={saving === "active-" + s.id}
+                              style={{ fontSize: 12, padding: "6px 14px", background: editMeta.isActive ? T.success + "22" : T.danger + "22", color: editMeta.isActive ? T.success : T.danger, border: `1px solid ${editMeta.isActive ? T.success + "44" : T.danger + "44"}` }}>
+                              {editMeta.isActive ? "Active" : "Inactive"}
+                            </Btn>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={labelStyle}>Description</label>
+                        <textarea value={editMeta.description || ""} onChange={(e: any) => setEditMeta((p: any) => ({ ...p, description: e.target.value }))} style={textareaStyle} />
+                      </div>
+                      <Btn onClick={() => saveMeta(s.id)} disabled={saving === "meta"} style={{ fontSize: 12, padding: "6px 14px" }}>
+                        {saving === "meta" ? "Saving..." : "Save Metadata"}
+                      </Btn>
+                    </div>
+
+                    {/* ─── Nodes Editor ─── */}
+                    <div style={{ marginBottom: 24 }}>
+                      <h5 style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 12 }}>
+                        Nodes ({nodes.length})
+                      </h5>
+                      {nodes.map((node: any, ni: number) => {
+                        const ne = editNodes[node.id] || { nodeType: node.nodeType, contentText: node.contentText };
+                        return (
+                          <div key={node.id} style={{ background: T.bg, borderRadius: 10, padding: 16, marginBottom: 12, border: `1px solid ${T.border}` }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <Badge color={nodeTypeBadgeColor[node.nodeType] || T.textMuted}>{node.nodeType}</Badge>
+                                <span style={{ fontSize: 12, color: T.textMuted }}>Node {ni + 1} (order: {node.orderIndex})</span>
+                              </div>
+                              <select value={ne.nodeType} onChange={(e: any) => setEditNodes((p: any) => ({ ...p, [node.id]: { ...ne, nodeType: e.target.value } }))} style={selectStyle}>
+                                <option value="REFLECTION">REFLECTION</option>
+                                <option value="DECISION">DECISION</option>
+                                <option value="OUTCOME">OUTCOME</option>
+                              </select>
+                            </div>
+                            <textarea value={ne.contentText} onChange={(e: any) => setEditNodes((p: any) => ({ ...p, [node.id]: { ...ne, contentText: e.target.value } }))}
+                              style={{ ...textareaStyle, marginBottom: 10 }} />
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <Btn onClick={() => saveNode(s.id, node.id)} disabled={saving === "node-" + node.id} style={{ fontSize: 11, padding: "5px 12px" }}>
+                                {saving === "node-" + node.id ? "Saving..." : "Save Node"}
+                              </Btn>
+                              <Btn onClick={() => deleteNode(s.id, node.id)} disabled={saving === "node-" + node.id} variant="danger" style={{ fontSize: 11, padding: "5px 12px" }}>Delete</Btn>
+                            </div>
+
+                            {/* ─── Choices (for DECISION nodes) ─── */}
+                            {node.nodeType === "DECISION" && (
+                              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px dashed ${T.border}` }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: T.warning, marginBottom: 10 }}>Choices ({(node.choices || []).length})</div>
+                                {(node.choices || []).map((choice: any) => {
+                                  const ce = editChoices[choice.id] || {
+                                    choiceText: choice.choiceText, explanationText: choice.explanationText,
+                                    q12Impact: choice.q12Impact || 0, pointsBase: choice.pointsBase || 0,
+                                    keyBehaviorsPositive: (choice.keyBehaviors || []).filter((kb: any) => kb.impact === "POSITIVE").map((kb: any) => kb.keyBehaviorId),
+                                    keyBehaviorsNegative: (choice.keyBehaviors || []).filter((kb: any) => kb.impact === "NEGATIVE").map((kb: any) => kb.keyBehaviorId),
+                                  };
+                                  return (
+                                    <div key={choice.id} style={{ background: T.surface, borderRadius: 8, padding: 12, marginBottom: 10, border: `1px solid ${T.border}` }}>
+                                      <div style={{ marginBottom: 8 }}>
+                                        <label style={labelStyle}>Choice Text</label>
+                                        <textarea value={ce.choiceText} onChange={(e: any) => setEditChoices((p: any) => ({ ...p, [choice.id]: { ...ce, choiceText: e.target.value } }))}
+                                          style={{ ...textareaStyle, minHeight: 50 }} />
+                                      </div>
+                                      <div style={{ marginBottom: 8 }}>
+                                        <label style={labelStyle}>Explanation (shown after choosing)</label>
+                                        <textarea value={ce.explanationText} onChange={(e: any) => setEditChoices((p: any) => ({ ...p, [choice.id]: { ...ce, explanationText: e.target.value } }))}
+                                          style={{ ...textareaStyle, minHeight: 50 }} />
+                                      </div>
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                                        <div>
+                                          <label style={labelStyle}>Q12 Impact</label>
+                                          <input type="number" value={ce.q12Impact} onChange={(e: any) => setEditChoices((p: any) => ({ ...p, [choice.id]: { ...ce, q12Impact: parseInt(e.target.value) || 0 } }))} style={inputStyle} />
+                                        </div>
+                                        <div>
+                                          <label style={labelStyle}>Points Base</label>
+                                          <input type="number" value={ce.pointsBase} onChange={(e: any) => setEditChoices((p: any) => ({ ...p, [choice.id]: { ...ce, pointsBase: parseInt(e.target.value) || 0 } }))} style={inputStyle} />
+                                        </div>
+                                      </div>
+                                      {/* Key Behaviors */}
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                                        <div>
+                                          <label style={labelStyle}>Positive Behaviors</label>
+                                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                            {(keyBehaviors || []).map((kb: any) => {
+                                              const isSelected = (ce.keyBehaviorsPositive || []).includes(kb.id);
+                                              return (
+                                                <button key={kb.id} onClick={() => {
+                                                  const updated = isSelected
+                                                    ? ce.keyBehaviorsPositive.filter((id: number) => id !== kb.id)
+                                                    : [...(ce.keyBehaviorsPositive || []), kb.id];
+                                                  setEditChoices((p: any) => ({ ...p, [choice.id]: { ...ce, keyBehaviorsPositive: updated } }));
+                                                }} style={{
+                                                  background: isSelected ? T.success + "22" : T.bg, color: isSelected ? T.success : T.textMuted,
+                                                  border: `1px solid ${isSelected ? T.success + "44" : T.border}`, borderRadius: 6,
+                                                  padding: "3px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit",
+                                                }}>{kb.name}</button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <label style={labelStyle}>Negative Behaviors</label>
+                                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                            {(keyBehaviors || []).map((kb: any) => {
+                                              const isSelected = (ce.keyBehaviorsNegative || []).includes(kb.id);
+                                              return (
+                                                <button key={kb.id} onClick={() => {
+                                                  const updated = isSelected
+                                                    ? ce.keyBehaviorsNegative.filter((id: number) => id !== kb.id)
+                                                    : [...(ce.keyBehaviorsNegative || []), kb.id];
+                                                  setEditChoices((p: any) => ({ ...p, [choice.id]: { ...ce, keyBehaviorsNegative: updated } }));
+                                                }} style={{
+                                                  background: isSelected ? T.danger + "22" : T.bg, color: isSelected ? T.danger : T.textMuted,
+                                                  border: `1px solid ${isSelected ? T.danger + "44" : T.border}`, borderRadius: 6,
+                                                  padding: "3px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit",
+                                                }}>{kb.name}</button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div style={{ display: "flex", gap: 8 }}>
+                                        <Btn onClick={() => saveChoice(s.id, node.id, choice.id)} disabled={saving === "choice-" + choice.id} style={{ fontSize: 11, padding: "4px 10px" }}>
+                                          {saving === "choice-" + choice.id ? "Saving..." : "Save Choice"}
+                                        </Btn>
+                                        <Btn onClick={() => deleteChoice(s.id, node.id, choice.id)} disabled={saving === "choice-" + choice.id} variant="danger" style={{ fontSize: 11, padding: "4px 10px" }}>Delete</Btn>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Add Choice Form */}
+                                {newChoiceForNode === node.id ? (
+                                  <div style={{ background: T.surface, borderRadius: 8, padding: 12, border: `1px dashed ${T.accent}` }}>
+                                    <div style={{ marginBottom: 8 }}>
+                                      <label style={labelStyle}>Choice Text</label>
+                                      <textarea value={newChoiceData.choiceText || ""} onChange={(e: any) => setNewChoiceData((p: any) => ({ ...p, choiceText: e.target.value }))} style={{ ...textareaStyle, minHeight: 50 }} placeholder="What does the manager choose?" />
+                                    </div>
+                                    <div style={{ marginBottom: 8 }}>
+                                      <label style={labelStyle}>Explanation</label>
+                                      <textarea value={newChoiceData.explanationText || ""} onChange={(e: any) => setNewChoiceData((p: any) => ({ ...p, explanationText: e.target.value }))} style={{ ...textareaStyle, minHeight: 50 }} placeholder="Why this choice matters..." />
+                                    </div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                                      <div>
+                                        <label style={labelStyle}>Q12 Impact</label>
+                                        <input type="number" value={newChoiceData.q12Impact || 0} onChange={(e: any) => setNewChoiceData((p: any) => ({ ...p, q12Impact: parseInt(e.target.value) || 0 }))} style={inputStyle} />
+                                      </div>
+                                      <div>
+                                        <label style={labelStyle}>Points Base</label>
+                                        <input type="number" value={newChoiceData.pointsBase || 0} onChange={(e: any) => setNewChoiceData((p: any) => ({ ...p, pointsBase: parseInt(e.target.value) || 0 }))} style={inputStyle} />
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                      <Btn onClick={() => addChoice(s.id, node.id)} disabled={saving === "new-choice"} style={{ fontSize: 11, padding: "4px 10px" }}>
+                                        {saving === "new-choice" ? "Adding..." : "Add Choice"}
+                                      </Btn>
+                                      <Btn onClick={() => { setNewChoiceForNode(null); setNewChoiceData({}); }} style={{ fontSize: 11, padding: "4px 10px", background: "transparent", border: `1px solid ${T.border}`, color: T.textDim }}>Cancel</Btn>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => { setNewChoiceForNode(node.id); setNewChoiceData({ choiceText: "", explanationText: "", q12Impact: 0, pointsBase: 0 }); }}
+                                    style={{ background: "transparent", border: `1px dashed ${T.border}`, borderRadius: 8, padding: "8px 14px", color: T.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+                                    + Add Choice
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Add Node */}
+                      {newNode ? (
+                        <div style={{ background: T.bg, borderRadius: 10, padding: 16, border: `1px dashed ${T.accent}` }}>
+                          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                            <div>
+                              <label style={labelStyle}>Node Type</label>
+                              <select value={newNode.nodeType || "REFLECTION"} onChange={(e: any) => setNewNode((p: any) => ({ ...p, nodeType: e.target.value }))} style={selectStyle}>
+                                <option value="REFLECTION">REFLECTION</option>
+                                <option value="DECISION">DECISION</option>
+                                <option value="OUTCOME">OUTCOME</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div style={{ marginBottom: 10 }}>
+                            <label style={labelStyle}>Content Text</label>
+                            <textarea value={newNode.contentText || ""} onChange={(e: any) => setNewNode((p: any) => ({ ...p, contentText: e.target.value }))} style={textareaStyle} placeholder="The prompt or situation text..." />
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <Btn onClick={() => addNode(s.id)} disabled={saving === "new-node"} style={{ fontSize: 11, padding: "5px 12px" }}>
+                              {saving === "new-node" ? "Adding..." : "Add Node"}
+                            </Btn>
+                            <Btn onClick={() => setNewNode(null)} style={{ fontSize: 11, padding: "5px 12px", background: "transparent", border: `1px solid ${T.border}`, color: T.textDim }}>Cancel</Btn>
+                          </div>
+                        </div>
+                      ) : (
+                        <button onClick={() => setNewNode({ nodeType: "REFLECTION", contentText: "" })}
+                          style={{ background: "transparent", border: `1px dashed ${T.border}`, borderRadius: 10, padding: "10px 16px", color: T.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+                          + Add Node
+                        </button>
+                      )}
+                    </div>
+
+                    {/* ─── Delete Scenario ─── */}
+                    <div style={{ paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+                      <Btn onClick={() => deleteScenario(s.id)} disabled={saving === "delete-" + s.id} variant="danger" style={{ fontSize: 12, padding: "6px 14px" }}>
+                        {saving === "delete-" + s.id ? "Deleting..." : "Delete Entire Scenario"}
+                      </Btn>
+                    </div>
+                  </>
                 )}
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {tab === "bugs" && <AdminBugsTab />}
+            )}
+          </Card>
+        );
+      })}
+      {scenarios.length === 0 && <Card><p style={{ color: T.textMuted, fontSize: 14, padding: 16 }}>No scenarios yet. Create your first one above.</p></Card>}
     </div>
   );
 }

@@ -115,10 +115,20 @@ export const api = {
   admin: {
     analytics: () => fetchAPI<any>("/api/admin/analytics"),
     scenarios: () => fetchAPI<any[]>("/api/admin/scenarios"),
+    getNodes: (scenarioId: string) =>
+      fetchAPI<any[]>(`/api/scenarios/${scenarioId}/nodes`),
     addNode: (scenarioId: string, data: any) =>
       fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes`, { method: "POST", body: JSON.stringify(data) }),
+    updateNode: (scenarioId: string, nodeId: string, data: any) =>
+      fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes/${nodeId}`, { method: "PUT", body: JSON.stringify(data) }),
+    deleteNode: (scenarioId: string, nodeId: string) =>
+      fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes/${nodeId}`, { method: "DELETE" }),
     addChoice: (scenarioId: string, nodeId: string, data: any) =>
       fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes/${nodeId}/choices`, { method: "POST", body: JSON.stringify(data) }),
+    updateChoice: (scenarioId: string, nodeId: string, choiceId: string, data: any) =>
+      fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes/${nodeId}/choices/${choiceId}`, { method: "PUT", body: JSON.stringify(data) }),
+    deleteChoice: (scenarioId: string, nodeId: string, choiceId: string) =>
+      fetchAPI<any>(`/api/scenarios/${scenarioId}/nodes/${nodeId}/choices/${choiceId}`, { method: "DELETE" }),
   },
 
   // ─── Reference Data ───
