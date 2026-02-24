@@ -128,10 +128,16 @@ export const authOptions: NextAuthOptions = {
         // Subsequent requests: refresh role from DB so admin changes take effect immediately
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true },
+          select: { role: true, email: true },
         });
         if (dbUser) {
-          token.role = dbUser.role;
+          // Bootstrap: auto-elevate the designated admin if not already ADMIN
+          if (dbUser.email === BOOTSTRAP_ADMIN_EMAIL && dbUser.role !== "ADMIN") {
+            await prisma.user.update({ where: { id: token.id as string }, data: { role: "ADMIN" } });
+            token.role = "ADMIN";
+          } else {
+            token.role = dbUser.role;
+          }
         }
       }
       return token;
