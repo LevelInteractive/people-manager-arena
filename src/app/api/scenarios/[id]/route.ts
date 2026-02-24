@@ -38,12 +38,22 @@ export async function GET(
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
   }
 
-  // Transform choices to include behavior arrays
+  // Fisher-Yates shuffle to randomize choice order per request
+  function shuffle<T>(arr: T[]): T[] {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Transform choices to include behavior arrays, randomize order
   const transformed = {
     ...scenario,
     nodes: scenario.nodes.map((node) => ({
       ...node,
-      choices: node.choices.map((choice) => ({
+      choices: shuffle(node.choices).map((choice) => ({
         id: choice.id,
         nodeId: choice.nodeId,
         choiceText: choice.choiceText,

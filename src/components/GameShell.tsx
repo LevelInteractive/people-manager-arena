@@ -582,6 +582,12 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
         {/* COACHING LOOP */}
         {current.nodeType === "REFLECTION" && coachingActive && (
           <div className="animate-slide-up">
+            {/* Show the user's initial reflection */}
+            <div style={{ background: T.bg, borderRadius: 12, padding: 16, marginBottom: 16, borderLeft: `3px solid ${T.textMuted}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, marginBottom: 6 }}>Your Initial Reflection</div>
+              <div style={{ fontSize: 14, lineHeight: 1.7, color: T.textDim }}>{reflText}</div>
+            </div>
+
             {/* Show prior exchanges */}
             {coachExchanges.map((ex, i) => (
               <div key={i} style={{ marginBottom: 16 }}>
