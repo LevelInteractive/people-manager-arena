@@ -231,9 +231,9 @@ function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: (
       const el = document.querySelector(currentStep.target);
       if (el) {
         el.classList.add("onboarding-highlight");
-        // Only scroll for non-nav elements (nav is always visible at top)
+        // Scroll non-nav elements to top of viewport so tooltip has room at bottom
         if (!isNavStep) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
     } else {
@@ -707,23 +707,24 @@ function HomeView({ scenarios, stats, onStart }: any) {
         {scenarios.map((s: any, i: number) => (
           <div key={s.id} {...(i === 0 ? { "data-onboarding": "first-scenario" } : {})}>
           <Card onClick={() => onStart(s)} style={{
-            animation: `slideUp 0.5s ease ${i * 0.1}s both`, position: "relative",
+            animation: `slideUp 0.5s ease ${i * 0.1}s both`,
           }}>
-            {s.userCompleted && (
-              <div style={{
-                position: "absolute", top: 16, right: 16, background: T.success + "22",
-                borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, color: T.success,
-              }}>✓ Completed</div>
-            )}
-            {!s.userCompleted && s.userInProgress && (
-              <div style={{
-                position: "absolute", top: 16, right: 16, background: T.warning + "22",
-                borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, color: T.warning,
-              }}>⏳ In Progress</div>
-            )}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
               <Badge color={s.coreValue?.color}>{s.coreValue?.name}</Badge>
               <Badge color={T.textDim}>Q12 #{s.primaryQ12Id}: {s.primaryQ12?.title}</Badge>
+              <div style={{ flex: 1 }} />
+              {s.userCompleted && (
+                <span style={{
+                  background: T.success + "22", borderRadius: 20,
+                  padding: "4px 12px", fontSize: 11, fontWeight: 700, color: T.success, whiteSpace: "nowrap",
+                }}>✓ Completed</span>
+              )}
+              {!s.userCompleted && s.userInProgress && (
+                <span style={{
+                  background: T.warning + "22", borderRadius: 20,
+                  padding: "4px 12px", fontSize: 11, fontWeight: 700, color: T.warning, whiteSpace: "nowrap",
+                }}>⏳ In Progress</span>
+              )}
             </div>
             <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{s.title}</h3>
             <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>{s.description}</p>
