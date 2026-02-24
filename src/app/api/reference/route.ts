@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuth } from "@/lib/session";
 
-// GET /api/reference — Get all reference/seed data (public for authenticated users)
+// GET /api/reference — Get all reference/seed data (authenticated users only)
 export async function GET() {
+  const { error } = await requireAuth();
+  if (error) return error;
+
   const [q12Dimensions, coreValues, keyBehaviors] = await Promise.all([
     prisma.q12Dimension.findMany({ orderBy: { id: "asc" } }),
     prisma.coreValue.findMany(),

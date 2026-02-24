@@ -145,7 +145,10 @@ export async function generateDecisionFeedback(
   chosenChoice: ChoiceInfo,
   bestChoice: ChoiceInfo
 ): Promise<string> {
-  const prompt = `You are an executive leadership coach. A manager made a decision in a scenario — their choice wasn't the strongest available, but it may still have real merit. Your job is to coach, not criticize.
+  const scoreDiff = (bestChoice.pointsBase + bestChoice.q12Impact) - (chosenChoice.pointsBase + chosenChoice.q12Impact);
+  const severity = scoreDiff >= 30 ? "SIGNIFICANT" : scoreDiff >= 15 ? "MODERATE" : "MINOR";
+
+  const prompt = `You are a direct, experienced management coach. A manager made a sub-optimal decision. Your job is to help them understand the gap — honestly, not harshly.
 
 SCENARIO: ${scenarioContext.title}
 CORE VALUE: ${scenarioContext.coreValueName} — ${scenarioContext.coreValueDescription}
@@ -157,18 +160,30 @@ WHAT THEY CHOSE: "${chosenChoice.choiceText}" (Score: ${chosenChoice.pointsBase 
 
 THE STRONGER OPTION: "${bestChoice.choiceText}" (Score: ${bestChoice.pointsBase + bestChoice.q12Impact})
 
-COACHING APPROACH:
-- First, if their choice has genuine strengths, briefly acknowledge what's reasonable about it (1 short clause is fine)
-- Then explain the key insight about why the stronger option is more effective — frame it as a learning moment, not a mistake
-- Reference "${scenarioContext.coreValueName}" or "${scenarioContext.q12Title}" only if it genuinely adds clarity
-- Use framing like "The edge here is..." or "What separates good from great here is..." — forward-looking, not backward-looking
+GAP SEVERITY: ${severity}
 
-RESPOND ONLY with the 2-3 sentence coaching note. No preamble.`;
+CRITICAL ANTI-SYCOPHANCY RULES:
+1. NEVER open with praise if their choice was genuinely weak (negative score or score below 10). A weak choice doesn't deserve "There's something reasonable here."
+2. If the gap is SIGNIFICANT, be direct about what went wrong. Name the specific harm or missed opportunity. Don't soften a bad decision into a "learning moment."
+3. If the gap is MODERATE, briefly acknowledge any genuine merit (1 short clause MAX), then focus on the insight.
+4. If the gap is MINOR, the choices were close — acknowledge the nuance and explain the edge.
+5. NEVER use hollow affirmations like "solid instinct" or "you're on the right track" for weak choices. These are lies that teach bad habits.
+6. Use the person's own choice words to show them what they prioritized vs. what the stronger option prioritized.
+
+COACHING APPROACH:
+- For weak choices: Name what went wrong and why. "You chose comfort over clarity" or "This avoids the hard part."
+- For moderate gaps: "The edge here is..." or "What separates good from great..."
+- For minor gaps: "Both are reasonable, but the stronger move is..."
+- Reference "${scenarioContext.coreValueName}" or "${scenarioContext.q12Title}" only if it genuinely adds clarity
+- 2-3 sentences. Coaches don't monologue.
+
+RESPOND ONLY with the coaching note. No preamble.`;
 
   try {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 150,
+      max_tokens: 200,
+      temperature: 0.4,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -188,7 +203,7 @@ export async function generateOptimalDecisionFeedback(
   nodePrompt: string,
   chosenChoice: ChoiceInfo
 ): Promise<string> {
-  const prompt = `You are an executive leadership coach. A manager just made the strongest decision available in a scenario. Affirm their instinct and deepen their understanding of WHY it was effective.
+  const prompt = `You are a direct, experienced management coach. A manager just made the strongest decision available. They earned real affirmation — but make it SPECIFIC and INSTRUCTIVE, not flattering.
 
 SCENARIO: ${scenarioContext.title}
 CORE VALUE: ${scenarioContext.coreValueName} — ${scenarioContext.coreValueDescription}
@@ -198,12 +213,12 @@ SITUATION: ${nodePrompt}
 
 WHAT THEY CHOSE (the optimal choice): "${chosenChoice.choiceText}"
 
-Write 2-3 sentences that:
-1. Affirm their decision with specificity — name what makes this the strongest move (not just "good job")
-2. Explain the leadership principle it demonstrates — connect it to "${scenarioContext.coreValueName}" or "${scenarioContext.q12Title}" in a way that deepens their understanding
-3. Give them something to carry forward — a broader insight about when this kind of decision matters most
-
-Be genuinely encouraging. This person showed good judgment — help them understand their own instinct so they can replicate it.
+CRITICAL RULES:
+1. Name the SPECIFIC thing that makes this choice strong — what did they prioritize that others miss?
+2. NEVER use generic praise like "Great instinct!" or "You really nailed it!" — these mean nothing. Instead, say what the choice DOES: "You chose structural change over a pep talk" or "You led with the question, not the answer."
+3. Connect to "${scenarioContext.coreValueName}" or "${scenarioContext.q12Title}" only if it genuinely deepens understanding — not as decoration.
+4. Give them ONE transferable principle they can use in their real work. Make it concrete.
+5. 2-3 sentences. Coaches don't monologue.
 
 RESPOND ONLY with the coaching note. No preamble.`;
 
@@ -211,6 +226,7 @@ RESPOND ONLY with the coaching note. No preamble.`;
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 200,
+      temperature: 0.4,
       messages: [{ role: "user", content: prompt }],
     });
 

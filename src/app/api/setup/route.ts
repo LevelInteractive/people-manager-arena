@@ -2,11 +2,15 @@ export const dynamic = 'force-dynamic';
 
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/session";
 
 // ONE-TIME SETUP ENDPOINT: Creates tables and seeds data
-// DELETE THIS FILE AFTER SETUP IS COMPLETE
+// Admin-only — requires authenticated admin session
 
 export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
   try {
     const results: string[] = [];
 

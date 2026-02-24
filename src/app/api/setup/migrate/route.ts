@@ -2,10 +2,14 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAdmin } from "@/lib/session";
 
 // GET /api/setup/migrate — Run schema migrations for new fields
-// Safe to re-run: uses IF NOT EXISTS / IF EXISTS patterns
+// Admin-only — requires authenticated admin session
 export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
   const steps: string[] = [];
 
   try {

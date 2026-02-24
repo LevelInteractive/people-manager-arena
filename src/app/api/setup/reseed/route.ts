@@ -3,10 +3,11 @@ export const maxDuration = 60; // Allow up to 60s for seeding
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAdmin } from "@/lib/session";
 
 // ═══════════════════════════════════════════════════════
 // RESEED ENDPOINT — Seeds all 12 scenarios
-// Visit /api/setup/reseed to run
+// Admin-only — requires authenticated admin session
 // Safe to re-run: deletes and recreates each scenario
 // ═══════════════════════════════════════════════════════
 
@@ -124,6 +125,9 @@ async function seedScenario(data: ScenarioData) {
 }
 
 export async function GET() {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
   try {
     const results: string[] = [];
 

@@ -109,6 +109,42 @@ function Modal({ children, onClose, title }: any) {
 }
 
 // ═══════════════════════════════════════════════════════
+// TOAST NOTIFICATION SYSTEM
+// ═══════════════════════════════════════════════════════
+type ToastType = "error" | "success" | "info";
+interface Toast { id: number; message: string; type: ToastType; }
+
+function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
+  if (toasts.length === 0) return null;
+  const colors: Record<ToastType, { bg: string; border: string; icon: string }> = {
+    error: { bg: "rgba(253,110,248,0.12)", border: "#FD6EF8", icon: "⚠" },
+    success: { bg: "rgba(142,227,77,0.12)", border: "#8EE34D", icon: "✓" },
+    info: { bg: "rgba(134,213,244,0.12)", border: "#86D5F4", icon: "ℹ" },
+  };
+  return (
+    <div style={{ position: "fixed", top: 20, right: 20, zIndex: 10000, display: "flex", flexDirection: "column", gap: 8, maxWidth: 380 }}>
+      {toasts.map(t => {
+        const c = colors[t.type];
+        return (
+          <div key={t.id} style={{
+            background: c.bg, border: `1px solid ${c.border}`, borderRadius: 12, padding: "12px 16px",
+            display: "flex", alignItems: "flex-start", gap: 10, backdropFilter: "blur(12px)",
+            animation: "slideUp 0.3s ease", color: T.text, fontSize: 13, lineHeight: 1.4,
+          }}>
+            <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>{c.icon}</span>
+            <span style={{ flex: 1 }}>{t.message}</span>
+            <button onClick={() => onDismiss(t.id)} style={{
+              background: "transparent", border: "none", color: T.textMuted, cursor: "pointer", fontSize: 18,
+              padding: 0, lineHeight: 1, flexShrink: 0,
+            }}>×</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
 // MAIN GAME SHELL
 // ═══════════════════════════════════════════════════════
 export default function GameShell({ session, scenarios, referenceData, userProfile, onDataRefresh }: {
@@ -124,6 +160,18 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
   const [adminData, setAdminData] = useState<any>(null);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [pendingResume, setPendingResume] = useState<any>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  let toastIdRef = 0;
+
+  const showToast = useCallback((message: string, type: ToastType = "error") => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   const user = session.user;
   const q12 = referenceData?.q12Dimensions || [];
@@ -165,6 +213,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
       }
     } catch (err) {
       console.error("Failed to load scenario:", err);
+      showToast("Failed to load scenario. Please try again.");
     }
   }, [logEvent]);
 
@@ -229,14 +278,14 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
   // Load leaderboard
   useEffect(() => {
     if (view === "leaderboard") {
-      api.leaderboard.get().then(setLeaderboard).catch(() => {});
+      api.leaderboard.get().then(setLeaderboard).catch(() => showToast("Failed to load leaderboard."));
     }
   }, [view]);
 
   // Load admin data
   useEffect(() => {
     if (view === "admin" && user.role === "ADMIN") {
-      api.admin.analytics().then(setAdminData).catch(() => {});
+      api.admin.analytics().then(setAdminData).catch(() => showToast("Failed to load admin analytics."));
     }
   }, [view, user.role]);
 
@@ -268,8 +317,21 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg }}>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {/* Responsive styles */}
+      <style>{`
+        @media (max-width: 768px) {
+          .game-nav { padding: 10px 12px !important; flex-wrap: wrap; gap: 8px; }
+          .game-nav-links { order: 3; width: 100%; justify-content: center !important; overflow-x: auto; }
+          .game-nav-links button { padding: 6px 10px !important; font-size: 12px !important; white-space: nowrap; }
+          .game-nav-user .user-name-text { display: none; }
+          .game-nav-user .user-role-badge { display: none; }
+          .game-main { padding: 16px 12px 80px !important; }
+          .profile-header-stats { gap: 12px !important; }
+        }
+      `}</style>
       {/* NAV */}
-      <nav style={{
+      <nav className="game-nav" style={{
         position: "sticky", top: 0, zIndex: 100, background: T.bg + "EE",
         backdropFilter: "blur(12px)", borderBottom: `1px solid ${T.border}`,
         padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -287,7 +349,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 4 }}>
+        <div className="game-nav-links" style={{ display: "flex", gap: 4 }}>
           {navItems.map(item => (
             <button key={item.key} onClick={() => nav(item.key)} style={{
               background: view === item.key ? T.accentDim : "transparent",
@@ -298,11 +360,11 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
           ))}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="game-nav-user" style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => setShowBugModal(true)} style={{
             background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8,
             padding: "6px 10px", cursor: "pointer", color: T.textDim, fontFamily: "inherit", fontSize: 12,
-          }}>🐛 Bug</button>
+          }}>🐛</button>
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
             background: T.surfaceHover, borderRadius: 8, padding: "6px 12px",
@@ -317,8 +379,8 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
                 fontSize: 12, fontWeight: 700, color: "#fff",
               }}>{user.name?.[0] || "?"}</div>
             )}
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
-            <Badge color={user.role === "ADMIN" ? T.info : T.success}>{user.role?.toLowerCase()}</Badge>
+            <span className="user-name-text" style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</span>
+            <span className="user-role-badge"><Badge color={user.role === "ADMIN" ? T.info : T.success}>{user.role?.toLowerCase()}</Badge></span>
           </div>
           <button onClick={() => signOut({ callbackUrl: "/login" })} style={{
             background: "transparent", border: "none", cursor: "pointer", color: T.textDim, padding: 4, fontSize: 18,
@@ -327,7 +389,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
       </nav>
 
       {/* CONTENT */}
-      <main style={{ maxWidth: view === "admin" ? 1400 : 1100, margin: "0 auto", padding: "24px 24px 80px" }}>
+      <main className="game-main" style={{ maxWidth: view === "admin" ? 1400 : 1100, margin: "0 auto", padding: "24px 24px 80px" }}>
         {view === "home" && (
           <HomeView scenarios={scenarios} stats={stats} onStart={startScenario} />
         )}
@@ -433,7 +495,7 @@ function HomeView({ scenarios, stats, onStart }: any) {
       </div>
 
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Scenario Arena</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
         {scenarios.map((s: any, i: number) => (
           <Card key={s.id} onClick={() => onStart(s)} style={{
             animation: `slideUp 0.5s ease ${i * 0.1}s both`, position: "relative",
@@ -1295,7 +1357,7 @@ function Q12TrainingView({ q12 }: { q12: any[] }) {
         <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.8, marginBottom: 16 }}>
           The Q12 framework isn't something you "implement" once — it's a lens for everyday management. Here's how to use it:
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))", gap: 14 }}>
           {[
             { title: "Diagnose Before You Act", text: "If your team seems disengaged, don't guess where the problem is. Walk through the 12 dimensions mentally — or better yet, ask your team directly. The Q12 gives you a diagnostic framework, not just a survey." },
             { title: "Build From The Base", text: "Fix basic needs (Q1-Q4) before investing in growth conversations (Q11-Q12). A team that doesn't have clear expectations won't benefit from a learning stipend." },
@@ -1356,7 +1418,7 @@ function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
               is scored against these values. Strong alignment means you are leading in a way that reflects our culture.
             </p>
           </Card>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px, 100%), 1fr))", gap: 16 }}>
             {coreValues.map((cv: any, i: number) => (
               <Card key={cv.id} style={{ padding: 28, animation: `slideUp 0.4s ease ${i * 0.1}s both` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
@@ -1380,7 +1442,7 @@ function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
               leadership strengths and areas for growth.
             </p>
           </Card>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(300px, 100%), 1fr))", gap: 12 }}>
             {keyBehaviors.map((kb: any, i: number) => (
               <Card key={kb.id} style={{ padding: 20, animation: `slideUp 0.3s ease ${i * 0.03}s both` }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -1408,37 +1470,114 @@ function ResourcesView({ q12, coreValues, keyBehaviors }: any) {
 // PROFILE VIEW
 // ═══════════════════════════════════════════════════════
 function ProfileView({ user, stats, q12, coreValues, recent }: any) {
+  const q12Breakdown = stats.q12Breakdown || {};
+  const cvBreakdown = stats.coreValueBreakdown || {};
+
+  // Build radar data from Q12 scores
+  const radarData = q12.map((d: any) => ({
+    dimension: `Q${d.id}`,
+    fullName: d.title,
+    score: q12Breakdown[d.id] || 0,
+  }));
+
+  const maxQ12 = Math.max(...radarData.map((d: any) => d.score), 1);
+
   return (
     <div className="animate-fade-in">
-      <Card style={{ padding: 32, marginBottom: 24, display: "flex", alignItems: "center", gap: 24 }}>
-        {user.image ? (
-          <img src={user.image} alt="" style={{ width: 72, height: 72, borderRadius: "50%" }} />
-        ) : (
-          <div style={{
-            width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #86D5F4, #FD6EF8)",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "#fff",
-          }}>{user.name?.[0]}</div>
-        )}
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{user.name}</h2>
-          <p style={{ color: T.textDim, fontSize: 14 }}>{user.email}</p>
-        </div>
-        <div style={{ display: "flex", gap: 24, textAlign: "center" }}>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{stats.totalScore || 0}</div>
-            <div style={{ fontSize: 12, color: T.textDim }}>Total Points</div>
+      {/* Header card with stats */}
+      <Card style={{ padding: 32, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+          {user.image ? (
+            <img src={user.image} alt="" style={{ width: 72, height: 72, borderRadius: "50%" }} />
+          ) : (
+            <div style={{
+              width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #86D5F4, #FD6EF8)",
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "#fff",
+            }}>{user.name?.[0]}</div>
+          )}
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{user.name}</h2>
+            <p style={{ color: T.textDim, fontSize: 14 }}>{user.email}</p>
           </div>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: T.success, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{stats.scenariosCompleted || 0}</div>
-            <div style={{ fontSize: 12, color: T.textDim }}>Completed</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: T.warning, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{stats.avgScore || 0}</div>
-            <div style={{ fontSize: 12, color: T.textDim }}>Avg Score</div>
+          <div style={{ display: "flex", gap: 20, textAlign: "center", flexWrap: "wrap" }}>
+            {[
+              { value: stats.totalScore || 0, label: "Total Points", color: T.accent },
+              { value: stats.scenariosCompleted || 0, label: "Completed", color: T.success },
+              { value: stats.avgScore || 0, label: "Avg Score", color: T.warning },
+              { value: stats.totalAttempts || 0, label: "Attempts", color: T.info },
+            ].map(s => (
+              <div key={s.label}>
+                <div style={{ fontSize: 26, fontWeight: 900, color: s.color, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: T.textDim }}>{s.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </Card>
 
+      {/* Q12 Radar Chart */}
+      {radarData.some((d: any) => d.score > 0) && (
+        <Card style={{ padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Q12 Engagement Profile</h3>
+          <p style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>Your Q12 impact scores across completed scenarios</p>
+          <div style={{ height: 300 }}>
+            <ResponsiveContainer>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke={T.border} />
+                <PolarAngleAxis dataKey="dimension" tick={{ fill: T.textDim, fontSize: 11 }} />
+                <PolarRadiusAxis tick={{ fill: T.textMuted, fontSize: 10 }} domain={[0, maxQ12]} />
+                <Radar name="Q12 Score" dataKey="score" stroke={T.accent} fill={T.accent} fillOpacity={0.25} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            {radarData.filter((d: any) => d.score > 0).map((d: any) => (
+              <div key={d.dimension} style={{
+                background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", fontSize: 12,
+              }}>
+                <span style={{ color: T.accent, fontWeight: 700 }}>{d.dimension}</span>
+                <span style={{ color: T.textMuted, marginLeft: 6 }}>{d.fullName}</span>
+                <span style={{ color: T.text, fontWeight: 700, marginLeft: 8, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{d.score}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Core Values Breakdown */}
+      {Object.keys(cvBreakdown).length > 0 && (
+        <Card style={{ padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Core Value Alignment</h3>
+          <p style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>Your culture scores by core value</p>
+          {coreValues.map((cv: any) => {
+            const score = cvBreakdown[cv.id] || 0;
+            const maxCv = Math.max(...Object.values(cvBreakdown).map((v: any) => Math.abs(v)), 1);
+            const pct = Math.min(Math.abs(score) / maxCv * 100, 100);
+            return (
+              <div key={cv.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: cv.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{cv.name}</span>
+                  </div>
+                  <span style={{
+                    fontSize: 14, fontWeight: 800, fontFamily: "'Inter Tight', 'JetBrains Mono'",
+                    color: score >= 0 ? T.success : T.danger,
+                  }}>{score > 0 ? "+" : ""}{score}</span>
+                </div>
+                <div style={{ height: 6, background: T.bg, borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", width: `${pct}%`, borderRadius: 3, transition: "width 0.5s ease",
+                    background: score >= 0 ? cv.color : T.danger,
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
+      {/* Completed Scenarios */}
       <Card style={{ padding: 24 }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Completed Scenarios</h3>
         {recent.length === 0 ? (
@@ -1449,11 +1588,21 @@ function ProfileView({ user, stats, q12, coreValues, recent }: any) {
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: 16, background: T.bg, borderRadius: 10, border: `1px solid ${T.border}`, marginBottom: 8,
             }}>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{r.scenarioTitle}</div>
                 <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{new Date(r.completedAt).toLocaleDateString()}</div>
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{r.score}</div>
+              <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: T.textMuted }}>Q12</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: (r.q12Score || 0) >= 0 ? T.success : T.danger, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{r.q12Score > 0 ? "+" : ""}{r.q12Score || 0}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: T.textMuted }}>Culture</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: (r.cultureScore || 0) >= 0 ? T.success : T.danger, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>{r.cultureScore > 0 ? "+" : ""}{r.cultureScore || 0}</div>
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: T.accent, fontFamily: "'Inter Tight', 'JetBrains Mono'", minWidth: 50, textAlign: "right" }}>{r.score}</div>
+              </div>
             </div>
           ))
         )}
