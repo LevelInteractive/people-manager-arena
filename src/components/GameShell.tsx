@@ -193,30 +193,42 @@ const ONBOARDING_STEPS = [
 function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: () => void }) {
   const [step, setStep] = useState(0);
   const [spotlight, setSpotlight] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [tooltipReady, setTooltipReady] = useState(false);
 
   const currentStep = ONBOARDING_STEPS[step];
 
   // Calculate spotlight position when step changes
   useEffect(() => {
+    setTooltipReady(false);
     if (!currentStep.target) {
       setSpotlight(null);
+      setTooltipReady(true);
       return;
     }
-    const el = document.querySelector(currentStep.target);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      const pad = 12;
-      setSpotlight({
-        top: rect.top - pad + window.scrollY,
-        left: rect.left - pad,
-        width: rect.width + pad * 2,
-        height: rect.height + pad * 2,
-      });
-      // Scroll into view if needed
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    } else {
-      setSpotlight(null);
-    }
+    // Small delay to let scroll settle
+    const timer = setTimeout(() => {
+      const el = document.querySelector(currentStep.target!);
+      if (el) {
+        // Scroll element into view first, then measure
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Wait for scroll to settle before measuring
+        setTimeout(() => {
+          const rect = el.getBoundingClientRect();
+          const pad = 12;
+          setSpotlight({
+            top: rect.top - pad,
+            left: rect.left - pad,
+            width: rect.width + pad * 2,
+            height: rect.height + pad * 2,
+          });
+          setTooltipReady(true);
+        }, 400);
+      } else {
+        setSpotlight(null);
+        setTooltipReady(true);
+      }
+    }, 50);
+    return () => clearTimeout(timer);
   }, [step, currentStep.target]);
 
   const finish = () => {
@@ -227,96 +239,111 @@ function OnboardingOverlay({ userName, onClose }: { userName: string; onClose: (
   const next = () => step < ONBOARDING_STEPS.length - 1 ? setStep(step + 1) : finish();
   const back = () => step > 0 && setStep(step - 1);
 
-  // Tooltip positioning
+  // All positions are viewport-relative (fixed), so tooltip goes below or above spotlight
   const getTooltipStyle = (): React.CSSProperties => {
     if (!spotlight || !currentStep.target) {
-      // Centered card
       return {
         position: "fixed", top: "50%", left: "50%",
         transform: "translate(-50%, -50%)",
       };
     }
-    const pos = (currentStep as any).position || "below";
-    if (pos === "below") {
+    // Check if there's room below the spotlight
+    const spaceBelow = window.innerHeight - (spotlight.top + spotlight.height);
+    const tooltipHeight = 280; // approximate
+    const placeBelow = spaceBelow > tooltipHeight + 20;
+
+    if (placeBelow) {
       return {
-        position: "absolute",
+        position: "fixed",
         top: spotlight.top + spotlight.height + 16,
-        left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 400)),
+        left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 416)),
       };
     }
+    // Place above
     return {
-      position: "absolute",
-      top: Math.max(16, spotlight.top - 200),
-      left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 400)),
+      position: "fixed",
+      bottom: window.innerHeight - spotlight.top + 16,
+      left: Math.max(16, Math.min(spotlight.left, window.innerWidth - 416)),
     };
   };
 
-  return (
+  const tooltipCard = (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 2000,
-      background: spotlight ? "transparent" : "rgba(0,0,0,0.85)",
+      ...getTooltipStyle(),
+      zIndex: 2002, maxWidth: 400, width: "calc(100vw - 32px)",
+      background: T.surface, border: `1px solid ${T.border}`,
+      borderRadius: 16, padding: 28,
+      animation: "slideUp 0.3s ease",
+      opacity: tooltipReady ? 1 : 0,
+      transition: "opacity 0.2s ease",
     }}>
-      {/* Dark overlay with spotlight cutout */}
+      <div style={{ fontSize: 32, marginBottom: 12 }}>{currentStep.icon}</div>
+      <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: T.text }}>
+        {step === 0 ? `Welcome, ${userName?.split(" ")[0] || "Manager"}!` : currentStep.title}
+      </h3>
+      <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
+        {currentStep.body}
+      </p>
+
+      {/* Step dots */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, justifyContent: "center" }}>
+        {ONBOARDING_STEPS.map((_, i) => (
+          <div key={i} style={{
+            width: i === step ? 24 : 8, height: 8, borderRadius: 4,
+            background: i === step ? T.accent : T.border,
+            transition: "all 0.3s ease",
+          }} />
+        ))}
+      </div>
+
+      {/* Buttons */}
+      <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
+        <div>
+          {step > 0 && (
+            <Btn onClick={back} variant="ghost" style={{ padding: "10px 16px", fontSize: 13 }}>
+              ← Back
+            </Btn>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {!currentStep.cta && (
+            <Btn onClick={finish} variant="ghost" style={{ padding: "10px 16px", fontSize: 13, color: T.textMuted }}>
+              Skip
+            </Btn>
+          )}
+          <Btn onClick={currentStep.cta ? finish : next} style={{ padding: "10px 20px", fontSize: 13 }}>
+            {currentStep.cta ? "Let's Go! →" : "Next →"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Full-screen click backdrop (only when no spotlight) */}
+      {!spotlight && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 2000,
+          background: "rgba(0,0,0,0.85)",
+        }} />
+      )}
+
+      {/* Spotlight cutout with massive box-shadow acting as backdrop */}
       {spotlight && (
         <div style={{
-          position: "absolute", top: spotlight.top, left: spotlight.left,
+          position: "fixed", top: spotlight.top, left: spotlight.left,
           width: spotlight.width, height: spotlight.height,
-          borderRadius: 16, zIndex: 2001,
+          borderRadius: 16, zIndex: 2000,
           boxShadow: "0 0 0 9999px rgba(0,0,0,0.85)",
           border: `2px solid ${T.accent}44`,
           pointerEvents: "none",
         }} />
       )}
 
-      {/* Tooltip card */}
-      <div style={{
-        ...getTooltipStyle(),
-        zIndex: 2002, maxWidth: 400, width: "calc(100% - 32px)",
-        background: T.surface, border: `1px solid ${T.border}`,
-        borderRadius: 16, padding: 28,
-        animation: "slideUp 0.3s ease",
-      }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>{currentStep.icon}</div>
-        <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: T.text }}>
-          {step === 0 ? `Welcome, ${userName?.split(" ")[0] || "Manager"}!` : currentStep.title}
-        </h3>
-        <p style={{ color: T.textDim, fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
-          {currentStep.body}
-        </p>
-
-        {/* Step dots */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 20, justifyContent: "center" }}>
-          {ONBOARDING_STEPS.map((_, i) => (
-            <div key={i} style={{
-              width: i === step ? 24 : 8, height: 8, borderRadius: 4,
-              background: i === step ? T.accent : T.border,
-              transition: "all 0.3s ease",
-            }} />
-          ))}
-        </div>
-
-        {/* Buttons */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
-          <div>
-            {step > 0 && (
-              <Btn onClick={back} variant="ghost" style={{ padding: "10px 16px", fontSize: 13 }}>
-                ← Back
-              </Btn>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {!currentStep.cta && (
-              <Btn onClick={finish} variant="ghost" style={{ padding: "10px 16px", fontSize: 13, color: T.textMuted }}>
-                Skip
-              </Btn>
-            )}
-            <Btn onClick={currentStep.cta ? finish : next} style={{ padding: "10px 20px", fontSize: 13 }}>
-              {currentStep.cta ? "Let's Go! →" : "Next →"}
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </div>
+      {/* Tooltip card — always fixed position */}
+      {tooltipCard}
+    </>
   );
 }
 
