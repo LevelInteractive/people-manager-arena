@@ -1163,31 +1163,40 @@ function Q12TrainingView({ q12 }: { q12: any[] }) {
       {/* ─── The Pyramid ─── */}
       <Card style={{ padding: 32, marginBottom: 24 }}>
         <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 6 }}>The Engagement Hierarchy</h2>
-        <p style={{ color: T.textDim, fontSize: 13, lineHeight: 1.7, marginBottom: 24 }}>
-          The Q12 dimensions aren't random — they form a hierarchy. Like Maslow's pyramid, you have to satisfy lower levels before higher ones can take hold. A team that lacks clear expectations (Q1) won't benefit from growth conversations (Q11). Build from the bottom up.
+        <p style={{ color: T.textDim, fontSize: 13, lineHeight: 1.7, marginBottom: 28 }}>
+          The Q12 dimensions form a hierarchy — like Maslow's pyramid, you have to satisfy lower levels before higher ones take hold. A team without clear expectations (Q1) won't benefit from growth conversations (Q11). Build from the bottom up.
         </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           {[...Q12_TIERS].reverse().map((tier, i) => {
-            const widthPct = 40 + (i * 20);
+            // Pyramid: top tier is narrowest, bottom is full width
+            // reversed array: i=0 is Growth (top), i=3 is Basic Needs (bottom)
+            const maxWidth = 100;
+            const minWidth = 40;
+            const step = (maxWidth - minWidth) / (Q12_TIERS.length - 1);
+            const widthPct = minWidth + (i * step);
             return (
               <div key={tier.key} style={{
-                display: "flex", alignItems: "center", gap: 16,
+                width: `${widthPct}%`, minWidth: 240,
+                padding: "16px 20px", borderRadius: 12,
+                background: tier.color + "10", border: `1px solid ${tier.color}30`,
+                textAlign: "center",
+                transition: "all 0.2s",
               }}>
-                <div style={{
-                  width: `${widthPct}%`, minWidth: 160, padding: "14px 20px", borderRadius: 10,
-                  background: tier.color + "18", border: `1px solid ${tier.color}44`,
-                  textAlign: "center",
-                }}>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: tier.color }}>{tier.label}</div>
-                  <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{
+                    width: 8, height: 8, borderRadius: "50%", background: tier.color, flexShrink: 0,
+                  }} />
+                  <span style={{ fontWeight: 800, fontSize: 14, color: tier.color }}>{tier.label}</span>
+                  <span style={{ fontSize: 11, color: T.textMuted, fontFamily: "'Inter Tight', 'JetBrains Mono'" }}>
                     Q{tier.ids[0]}{tier.ids.length > 1 ? `–Q${tier.ids[tier.ids.length - 1]}` : ""}
-                  </div>
+                  </span>
                 </div>
-                <p style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6, flex: 1 }}>{tier.description}</p>
+                <p style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6, maxWidth: 520, margin: "0 auto" }}>{tier.description}</p>
               </div>
             );
           })}
         </div>
+        <p style={{ color: T.textMuted, fontSize: 11, textAlign: "center", marginTop: 16, fontStyle: "italic" }}>▲ Start at the base and work upward</p>
       </Card>
 
       {/* ─── Detailed Q12 Cards by Tier ─── */}
