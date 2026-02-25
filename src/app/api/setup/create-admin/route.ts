@@ -1,15 +1,29 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  // Production gate: setup endpoints must be explicitly enabled
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_SETUP !== "true") {
+    return NextResponse.json({ error: "Setup endpoints are disabled in production" }, { status: 403 });
+  }
+
+  // Rate limit: 5 attempts per 15 minutes per IP
+  const rlKey = getRateLimitKey(request, "create-admin");
+  const rl = checkRateLimit(rlKey, { limit: 5, windowSeconds: 900 });
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
+  }
+
   try {
     const { email, password, name, setupKey } = await request.json();
 
-    // Verify setup key matches NEXTAUTH_SECRET
-    if (setupKey !== process.env.NEXTAUTH_SECRET) {
+    // Verify setup key — use a dedicated SETUP_SECRET, fallback to NEXTAUTH_SECRET
+    const expectedKey = process.env.SETUP_SECRET || process.env.NEXTAUTH_SECRET;
+    if (!expectedKey || setupKey !== expectedKey) {
       return NextResponse.json({ error: "Invalid setup key" }, { status: 401 });
     }
 
@@ -50,4 +64,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-      }
+}

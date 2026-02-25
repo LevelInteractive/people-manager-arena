@@ -8,6 +8,11 @@ import { requireAdmin } from "@/lib/session";
 // Admin-only — requires authenticated admin session
 
 export async function GET() {
+  // Production gate: setup endpoints must be explicitly enabled
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_SETUP !== "true") {
+    return NextResponse.json({ error: "Setup endpoints are disabled in production" }, { status: 403 });
+  }
+
   const { error } = await requireAdmin();
   if (error) return error;
 
@@ -211,19 +216,14 @@ export async function GET() {
       results.push("Scenario already exists, skipping.");
     }
 
-    // Create admin user
+    // Create admin user from env
     results.push("Creating admin user...");
+    const bootstrapEmail = process.env.BOOTSTRAP_ADMIN_EMAIL || "myles.biggs@level.agency";
+    const bootstrapName = bootstrapEmail.split("@")[0].split(".").map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
     await prisma.user.upsert({
-      where: { email: "admin@levelagency.com" },
+      where: { email: bootstrapEmail },
       update: { role: "ADMIN" },
-      create: { email: "admin@levelagency.com", name: "Level Admin", role: "ADMIN" },
-    });
-
-    // Also create Myles as a user
-    await prisma.user.upsert({
-      where: { email: "myles.biggs@level.agency" },
-      update: {},
-      create: { email: "myles.biggs@level.agency", name: "Myles Biggs", role: "ADMIN" },
+      create: { email: bootstrapEmail, name: bootstrapName, role: "ADMIN" },
     });
     results.push("Users created!");
 
@@ -233,6 +233,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, steps: results }, { status: 200 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message, stack: error.stack }, { status: 500 });
+    console.error("Setup error:", error);
+    return NextResponse.json({ success: false, error: "Setup failed. Check server logs for details." }, { status: 500 });
   }
 }

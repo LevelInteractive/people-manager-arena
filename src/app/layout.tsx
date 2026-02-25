@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Providers from "@/components/Providers";
+import "@/lib/env-check"; // Validates env vars on startup
 import "./globals.css";
 
 export const metadata: Metadata = {

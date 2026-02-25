@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { generateDecisionFeedback, generateOptimalDecisionFeedback } from "@/lib/anthropic";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 // POST /api/coaching/decision — Get feedback when non-optimal choice is selected
 export async function POST(req: NextRequest) {
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  const body = await req.json();
+  // Rate limit: 20 coaching requests per minute per IP
+  const rlKey = getRateLimitKey(req, "coaching-decision");
+  const rl = checkRateLimit(rlKey, { limit: 20, windowSeconds: 60 });
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { scenarioId, nodeId, chosenChoiceId } = body;
 
   if (!scenarioId || !nodeId || !chosenChoiceId) {
@@ -150,6 +163,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error("Coaching decision error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate decision feedback." }, { status: 500 });
   }
 }

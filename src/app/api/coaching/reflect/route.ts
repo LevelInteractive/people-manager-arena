@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { generateReflectionCoaching } from "@/lib/anthropic";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 
 // POST /api/coaching/reflect — Get coaching feedback on a reflection
 export async function POST(req: NextRequest) {
   const { error, session } = await requireAuth();
   if (error) return error;
 
-  const body = await req.json();
+  // Rate limit: 20 coaching requests per minute per IP
+  const rlKey = getRateLimitKey(req, "coaching-reflect");
+  const rl = checkRateLimit(rlKey, { limit: 20, windowSeconds: 60 });
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const {
     scenarioId,
     nodeId,
@@ -20,6 +33,13 @@ export async function POST(req: NextRequest) {
   if (!scenarioId || !nodeId || !userResponse || !exchangeNumber) {
     return NextResponse.json(
       { error: "Missing required fields: scenarioId, nodeId, userResponse, exchangeNumber" },
+      { status: 400 }
+    );
+  }
+
+  if (typeof userResponse !== "string" || userResponse.length > 10000) {
+    return NextResponse.json(
+      { error: "userResponse must be a string under 10000 characters" },
       { status: 400 }
     );
   }
@@ -145,6 +165,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error("Coaching reflect error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate coaching feedback." }, { status: 500 });
   }
 }

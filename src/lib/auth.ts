@@ -6,8 +6,8 @@ import prisma from "@/lib/prisma";
 const ALLOWED_DOMAINS = ["level.agency", "levelagency.com"];
 
 // Bootstrap admin — this email is always elevated to ADMIN on sign-in.
-// Once you have multiple admins, you can remove this constant.
-const BOOTSTRAP_ADMIN_EMAIL = "myles.biggs@level.agency";
+// Configure via BOOTSTRAP_ADMIN_EMAIL env var. Once you have multiple admins, you can unset this.
+const BOOTSTRAP_ADMIN_EMAIL = process.env.BOOTSTRAP_ADMIN_EMAIL || "";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -42,13 +42,13 @@ export const authOptions: NextAuthOptions = {
             data: {
               email,
               name: email.split("@")[0].split(".").map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join(" "),
-              role: email === BOOTSTRAP_ADMIN_EMAIL ? "ADMIN" : "MANAGER",
+              role: (BOOTSTRAP_ADMIN_EMAIL && email === BOOTSTRAP_ADMIN_EMAIL) ? "ADMIN" : "MANAGER",
             },
           });
         }
 
         // Bootstrap: ensure the designated admin always has ADMIN role
-        if (email === BOOTSTRAP_ADMIN_EMAIL && user.role !== "ADMIN") {
+        if (BOOTSTRAP_ADMIN_EMAIL && email === BOOTSTRAP_ADMIN_EMAIL && user.role !== "ADMIN") {
           user = await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
         }
 
@@ -69,6 +69,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 hours
   },
   callbacks: {
     async signIn({ user, account }) {
@@ -91,13 +92,13 @@ export const authOptions: NextAuthOptions = {
             data: {
               email,
               name: user.name || email.split("@")[0].split(".").map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join(" "),
-              role: email === BOOTSTRAP_ADMIN_EMAIL ? "ADMIN" : "MANAGER",
+              role: (BOOTSTRAP_ADMIN_EMAIL && email === BOOTSTRAP_ADMIN_EMAIL) ? "ADMIN" : "MANAGER",
             },
           });
         }
 
         // Bootstrap: ensure the designated admin always has ADMIN role
-        if (email === BOOTSTRAP_ADMIN_EMAIL && dbUser.role !== "ADMIN") {
+        if (BOOTSTRAP_ADMIN_EMAIL && email === BOOTSTRAP_ADMIN_EMAIL && dbUser.role !== "ADMIN") {
           await prisma.user.update({ where: { id: dbUser.id }, data: { role: "ADMIN" } });
         }
 
@@ -132,7 +133,7 @@ export const authOptions: NextAuthOptions = {
         });
         if (dbUser) {
           // Bootstrap: auto-elevate the designated admin if not already ADMIN
-          if (dbUser.email === BOOTSTRAP_ADMIN_EMAIL && dbUser.role !== "ADMIN") {
+          if (BOOTSTRAP_ADMIN_EMAIL && dbUser.email === BOOTSTRAP_ADMIN_EMAIL && dbUser.role !== "ADMIN") {
             await prisma.user.update({ where: { id: token.id as string }, data: { role: "ADMIN" } });
             token.role = "ADMIN";
           } else {

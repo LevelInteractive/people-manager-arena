@@ -7,6 +7,11 @@ import { requireAdmin } from "@/lib/session";
 // GET /api/setup/migrate — Run schema migrations for new fields
 // Admin-only — requires authenticated admin session
 export async function GET() {
+  // Production gate: setup endpoints must be explicitly enabled
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_SETUP !== "true") {
+    return NextResponse.json({ error: "Setup endpoints are disabled in production" }, { status: 403 });
+  }
+
   const { error } = await requireAdmin();
   if (error) return error;
 
