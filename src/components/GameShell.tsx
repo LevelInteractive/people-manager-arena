@@ -362,11 +362,14 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const user = session.user;
+  const user = session?.user;
   const q12 = referenceData?.q12Dimensions || [];
   const coreValues = referenceData?.coreValues || [];
   const keyBehaviors = referenceData?.keyBehaviors || [];
   const stats = userProfile?.stats || {};
+
+  // Guard against session being null during re-auth
+  if (!user) return null;
 
   const nav = (v: string) => { setView(v); window.scrollTo(0, 0); };
 
@@ -428,7 +431,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
       }));
     } else if (nodeData.type === "choice") {
       const choice = nodeData.choice;
-      const cvScore = Object.values(choice.coreValueAlignment as Record<string, number>)
+      const cvScore = Object.values((choice.coreValueAlignment || {}) as Record<string, number>)
         .reduce((a: number, b: number) => a + b, 0);
 
       logEvent("choice_selected", fullScenario.id, { choiceId: choice.id });
@@ -473,10 +476,10 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
 
   // Load admin data
   useEffect(() => {
-    if (view === "admin" && user.role === "ADMIN") {
+    if (view === "admin" && user?.role === "ADMIN") {
       api.admin.analytics().then(setAdminData).catch(() => showToast("Failed to load admin analytics."));
     }
-  }, [view, user.role]);
+  }, [view, user?.role]);
 
   // Auto-save game progress
   useEffect(() => {
@@ -501,7 +504,7 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
     { key: "resources", label: "Resources", onboarding: "nav-resources" },
     { key: "profile", label: "Profile", onboarding: "nav-profile" },
     { key: "leaderboard", label: "Board", onboarding: "nav-board" },
-    ...(user.role === "ADMIN" ? [{ key: "admin", label: "Admin", onboarding: null }] : []),
+    ...(user?.role === "ADMIN" ? [{ key: "admin", label: "Admin", onboarding: null }] : []),
   ];
 
   return (
@@ -624,8 +627,8 @@ export default function GameShell({ session, scenarios, referenceData, userProfi
         {view === "leaderboard" && (
           <LeaderboardView data={leaderboard} currentUserId={user.id} />
         )}
-        {view === "admin" && user.role === "ADMIN" && adminData && (
-          <AdminView data={adminData} q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} currentUserId={user.id} />
+        {view === "admin" && user?.role === "ADMIN" && adminData && (
+          <AdminView data={adminData} q12={q12} coreValues={coreValues} keyBehaviors={keyBehaviors} currentUserId={user?.id} />
         )}
       </main>
 
@@ -786,7 +789,7 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
 
   if (!current) return null;
 
-  const progress = (gameState.currentNodeIndex / nodes.length) * 100;
+  const progress = nodes.length > 0 ? (gameState.currentNodeIndex / nodes.length) * 100 : 0;
   const formatContent = (text: string) => text.split("**").map((part: string, i: number) =>
     i % 2 === 1 ? <strong key={i} style={{ color: T.accent }}>{part}</strong> : <span key={i}>{part}</span>
   );
@@ -997,7 +1000,7 @@ function PlayView({ scenario, gameState, onNodeComplete, onFinish, keyBehaviors 
                 {[
                   { label: "Points", value: selChoice.pointsBase, key: "p" },
                   { label: "Q12", value: selChoice.q12Impact, key: "q" },
-                  { label: "Culture", value: Object.values(selChoice.coreValueAlignment as Record<string, number>).reduce((a: number, b: number) => a + b, 0), key: "c" },
+                  { label: "Culture", value: Object.values((selChoice.coreValueAlignment || {}) as Record<string, number>).reduce((a: number, b: number) => a + b, 0), key: "c" },
                 ].map(s => (
                   <div key={s.key} style={{
                     background: ((s.value as number) >= 0 ? T.success : T.danger) + "11", borderRadius: 8, padding: "6px 14px",
